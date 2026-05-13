@@ -7,11 +7,11 @@ type Result<T> = Ok<T> | Err;
 
 type BgMessage =
   | { type: "config.setApiBase"; url: string }
-  | { type: "permissions.ensureApiOrigin" }
   | { type: "api.meta" }
   | { type: "api.authEmail"; email: string }
   | { type: "api.authVerify"; email: string; code: string }
-  | { type: "api.logout" };
+  | { type: "api.logout" }
+  | { type: "api.uploadDrawing"; buffer: ArrayBuffer; mimeType: string; meta: Record<string, unknown> };
 
 async function parseJsonSafe(text: string): Promise<unknown> {
   try {
@@ -65,23 +65,21 @@ async function apiRequest(opts: {
   return { ok: true, data: { status: res.status, json, text } };
 }
 
-async function requestApiOriginPermission(): Promise<Result<boolean>> {
+const NEED_API_HOST_HINT =
+  "Нет доступа к домену API в браузере. Откройте окно расширения (иконка пазла → vgraffiti) и нажмите «Проверить адрес», разрешите доступ, затем повторите действие на карте.";
+
+/** В SW нельзя вызывать chrome.permissions.request (нет user gesture) — только проверка. */
+async function hasApiOriginPermission(): Promise<Result<boolean>> {
   const base = await getApiBaseUrl();
   if (!base) {
-    return { ok: false, error: "Сначала сохраните URL API" };
+    return { ok: false, error: "Сначала сохраните URL API в окне расширения" };
   }
   const originPattern = `${originFromApiBase(base)}/*`;
   try {
     const has = await chrome.permissions.contains({
       origins: [originPattern],
     });
-    if (has) {
-      return { ok: true, data: true };
-    }
-    const granted = await chrome.permissions.request({
-      origins: [originPattern],
-    });
-    return { ok: true, data: granted };
+    return { ok: true, data: has };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -98,19 +96,13 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
         return { ok: false, error: e instanceof Error ? e.message : String(e) };
       }
     }
-    case "permissions.ensureApiOrigin": {
-      return requestApiOriginPermission();
-    }
-    case "permissions.ensureApiOrigin": {
-      return requestApiOriginPermission();
-    }
     case "api.meta": {
-      const perm = await requestApiOriginPermission();
+      const perm = await hasApiOriginPermission();
       if (!perm.ok) {
         return perm;
       }
       if (!perm.data) {
-        return { ok: false, error: "Нет доступа к домену API в браузере" };
+        return { ok: false, error: NEED_API_HOST_HINT };
       }
       const r = await apiRequest({
         path: "/meta",
@@ -132,12 +124,12 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
       return { ok: true, data: json };
     }
     case "api.authEmail": {
-      const perm = await requestApiOriginPermission();
+      const perm = await hasApiOriginPermission();
       if (!perm.ok) {
         return perm;
       }
       if (!perm.data) {
-        return { ok: false, error: "Нет доступа к домену API" };
+        return { ok: false, error: NEED_API_HOST_HINT };
       }
       const r = await apiRequest({
         path: "/auth/email",
@@ -161,12 +153,12 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
       return { ok: true, data: { sent: true } };
     }
     case "api.authVerify": {
-      const perm = await requestApiOriginPermission();
+      const perm = await hasApiOriginPermission();
       if (!perm.ok) {
         return perm;
       }
       if (!perm.data) {
-        return { ok: false, error: "Нет доступа к домену API" };
+        return { ok: false, error: NEED_API_HOST_HINT };
       }
       const r = await apiRequest({
         path: "/auth/verify",
@@ -214,6 +206,56 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
       }
       await clearSession();
       return { ok: true, data: { ok: true } };
+    }
+    case "api.uploadDrawing": {
+      const perm = await hasApiOriginPermission();
+      if (!perm.ok) {
+        return perm;
+      }
+      if (!perm.data) {
+        return { ok: false, error: NEED_API_HOST_HINT };
+      }
+      const { accessToken } = await getSession();
+      if (!accessToken) {
+        return { ok: false, error: "Нет сессии: войдите по почте" };
+      }
+      const base = await getApiBaseUrl();
+      if (!base) {
+        return { ok: false, error: "Сервер не настроен" };
+      }
+      const url = `${base}/drawings`;
+      const blob = new Blob([msg.buffer], { type: msg.mimeType || "image/png" });
+      const form = new FormData();
+      form.append("file", blob, "drawing.png");
+      form.append("meta", JSON.stringify(msg.meta ?? {}));
+      form.append("title", "");
+      form.append("description", "");
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      };
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: form,
+        });
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+      const text = await res.text();
+      const json = text.length ? await parseJsonSafe(text) : null;
+      if (res.status >= 400) {
+        return {
+          ok: false,
+          status: res.status,
+          body: text,
+          error: `HTTP ${res.status}`,
+        };
+      }
+      return { ok: true, data: json };
     }
     default:
       return { ok: false, error: "Неизвестный тип сообщения" };

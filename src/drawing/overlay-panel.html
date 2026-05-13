@@ -17,7 +17,25 @@
 </div>
 <div class="history-row">
   <button type="button" class="hist-btn" id="vgf-undo" title="Отменить (Ctrl+Z)">↶</button>
-  <button type="button" class="hist-btn" id="vgf-redo" title="Повторить (Ctrl+Shift+Z или Ctrl+Y)">↷</button>
+  <button type="button" class="hist-btn" id="vgf-redo" title="Повторить (Ctrl+Shift+Z или Cmd+Shift+Z)">↷</button>
+  <button type="button" class="hist-btn hist-save" id="vgf-save" title="Сохранить слой на сервер (Ctrl+Y или Cmd+Y; без входа нажмите дискету для формы входа)" aria-label="Сохранить на сервер">
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+  </button>
+</div>
+<p id="vgf-save-feedback" class="save-feedback" hidden></p>
+<div id="vgf-auth-sheet" class="auth-sheet" hidden>
+  <p class="auth-sheet-msg" id="vgf-auth-msg"></p>
+  <p id="vgf-auth-err" class="auth-err" hidden></p>
+  <label class="auth-label"><span>Базовый URL API</span><input type="url" id="vgf-auth-api" autocomplete="off" placeholder="https://…/wp-json/vgraffiti/v1" /></label>
+  <div class="auth-row-btns">
+    <button type="button" id="vgf-auth-save-url">Сохранить URL</button>
+    <button type="button" id="vgf-auth-check-meta" title="Проверка доступности сервера по указанному адресу API">Проверить адрес</button>
+  </div>
+  <label class="auth-label"><span>Email</span><input type="email" id="vgf-auth-email" autocomplete="email" /></label>
+  <button type="button" class="auth-primary" id="vgf-auth-send-code">Отправить код</button>
+  <label class="auth-label"><span>Код из письма</span><input type="text" id="vgf-auth-code" inputmode="numeric" autocomplete="one-time-code" /></label>
+  <button type="button" class="auth-primary" id="vgf-auth-verify">Подтвердить вход</button>
+  <button type="button" class="auth-close" id="vgf-auth-close">Закрыть</button>
 </div>
 <div class="tools">
   <button type="button" class="tool on" data-tool="brush" title="Кисть — размер ниже"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37-1.34-1.34a1 1 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a1 1 0 0 0 0-1.41z"/></svg></button>

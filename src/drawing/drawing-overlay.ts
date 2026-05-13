@@ -1,5 +1,13 @@
 import overlayCss from "./overlay-panel.css?raw";
 import barMarkup from "./overlay-panel.html?raw";
+import {
+  bgAuthEmail,
+  bgAuthVerify,
+  bgMeta,
+  bgSetApiBaseUrl,
+  bgUploadDrawing,
+} from "../lib/extension-api";
+import { getApiBaseUrl, getSession } from "../lib/storage";
 import { drawArrow, drawSquareStroke } from "./shapes";
 import {
   coalescedOrSelf,
@@ -40,6 +48,9 @@ const SWATCHES = [
 
 type ToolId = "brush" | "eraser" | "arrow" | "square";
 type UiMode = "nav" | "draw";
+
+/** Порядок переключения по Ctrl+Q / Cmd+Q */
+const TOOL_CYCLE_ORDER: readonly ToolId[] = ["brush", "eraser", "arrow", "square"];
 
 type StoredStroke =
   | { kind: "brush"; points: StrokePoint[]; color: string; size: number }
@@ -111,6 +122,21 @@ export class DrawingOverlay {
   private readonly dragHandle: HTMLSpanElement;
   private readonly undoBtn: HTMLButtonElement;
   private readonly redoBtn: HTMLButtonElement;
+  private readonly saveBtn: HTMLButtonElement;
+  private readonly saveFeedback: HTMLParagraphElement;
+  private readonly authSheet: HTMLDivElement;
+  private readonly authMsg: HTMLParagraphElement;
+  private readonly authErr: HTMLParagraphElement;
+  private readonly authApiInput: HTMLInputElement;
+  private readonly authSaveUrlBtn: HTMLButtonElement;
+  private readonly authCheckMetaBtn: HTMLButtonElement;
+  private readonly authEmailInput: HTMLInputElement;
+  private readonly authSendCodeBtn: HTMLButtonElement;
+  private readonly authCodeInput: HTMLInputElement;
+  private readonly authVerifyBtn: HTMLButtonElement;
+  private readonly authCloseBtn: HTMLButtonElement;
+
+  private pendingSaveAfterAuth = false;
 
   private activeTool: ToolId = "brush";
   private uiMode: UiMode = "draw";
@@ -189,6 +215,19 @@ export class DrawingOverlay {
     this.dragHandle = this.bar.querySelector<HTMLSpanElement>("#vgf-drag")!;
     this.undoBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-undo")!;
     this.redoBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-redo")!;
+    this.saveBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-save")!;
+    this.saveFeedback = this.bar.querySelector<HTMLParagraphElement>("#vgf-save-feedback")!;
+    this.authSheet = this.bar.querySelector<HTMLDivElement>("#vgf-auth-sheet")!;
+    this.authMsg = this.bar.querySelector<HTMLParagraphElement>("#vgf-auth-msg")!;
+    this.authErr = this.bar.querySelector<HTMLParagraphElement>("#vgf-auth-err")!;
+    this.authApiInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-api")!;
+    this.authSaveUrlBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-save-url")!;
+    this.authCheckMetaBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-check-meta")!;
+    this.authEmailInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-email")!;
+    this.authSendCodeBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-send-code")!;
+    this.authCodeInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-code")!;
+    this.authVerifyBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-verify")!;
+    this.authCloseBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-close")!;
   }
 
   private init(): void {
@@ -205,6 +244,12 @@ export class DrawingOverlay {
     this.clearBtn.addEventListener("click", this.onClearClick);
     this.undoBtn.addEventListener("click", this.onUndoClick);
     this.redoBtn.addEventListener("click", this.onRedoClick);
+    this.saveBtn.addEventListener("click", this.onSaveClick);
+    this.authSaveUrlBtn.addEventListener("click", this.onAuthSaveUrlClick);
+    this.authCheckMetaBtn.addEventListener("click", this.onAuthCheckMetaClick);
+    this.authSendCodeBtn.addEventListener("click", this.onAuthSendCodeClick);
+    this.authVerifyBtn.addEventListener("click", this.onAuthVerifyClick);
+    this.authCloseBtn.addEventListener("click", this.onAuthCloseClick);
     window.addEventListener("keydown", this.onWindowKeyDown, true);
 
     this.bar.querySelectorAll<HTMLButtonElement>(".tool").forEach((btn) => {
@@ -246,6 +291,7 @@ export class DrawingOverlay {
     this.applyBarPosition();
     this.syncUndoRedoButtons();
     this.resize();
+    this.authSheet.hidden = true;
   }
 
   private readonly onGlobalPointerUp = (ev: PointerEvent): void => {
@@ -297,6 +343,14 @@ export class DrawingOverlay {
       this.activeTool === "brush" || this.activeTool === "arrow" || this.activeTool === "square";
     this.brushWrap.hidden = !brushTools;
     this.eraserWrap.hidden = this.activeTool !== "eraser";
+  }
+
+  private cycleToolForward(): void {
+    const i = TOOL_CYCLE_ORDER.indexOf(this.activeTool);
+    const next = TOOL_CYCLE_ORDER[(i === -1 ? 0 : i + 1) % TOOL_CYCLE_ORDER.length];
+    this.activeTool = next;
+    this.syncToolButtons();
+    this.syncSizeRows();
   }
 
   private syncToolButtons(): void {
@@ -593,14 +647,20 @@ export class DrawingOverlay {
       e.stopPropagation();
       return;
     }
-    if (k === "y" && !e.shiftKey) {
-      this.performRedo();
+    if (k === "x" && !e.shiftKey) {
+      this.swapFgBgColors();
       e.preventDefault();
       e.stopPropagation();
       return;
     }
-    if (k === "x" && !e.shiftKey) {
-      this.swapFgBgColors();
+    if (k === "y" && !e.shiftKey) {
+      void this.requestSaveFromUser(false);
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (k === "q" && !e.shiftKey) {
+      this.cycleToolForward();
       e.preventDefault();
       e.stopPropagation();
     }
@@ -804,6 +864,204 @@ export class DrawingOverlay {
   private readonly onWindowResize = (): void => {
     this.resize();
   };
+
+  private flushRedraw(): void {
+    cancelAnimationFrame(this.raf);
+    this.redraw();
+  }
+
+  private showSaveFeedback(text: string, kind: "ok" | "err"): void {
+    this.saveFeedback.textContent = text;
+    this.saveFeedback.hidden = false;
+    this.saveFeedback.classList.toggle("err", kind === "err");
+    if (kind === "ok") {
+      window.setTimeout(() => {
+        this.saveFeedback.hidden = true;
+      }, 5000);
+    }
+  }
+
+  private hideSaveFeedback(): void {
+    this.saveFeedback.hidden = true;
+    this.saveFeedback.textContent = "";
+    this.saveFeedback.classList.remove("err");
+  }
+
+  private clearAuthErr(): void {
+    this.authErr.hidden = true;
+    this.authErr.textContent = "";
+  }
+
+  private showAuthErr(text: string): void {
+    this.authErr.textContent = text;
+    this.authErr.hidden = false;
+  }
+
+  private syncAuthApiField(): void {
+    void getApiBaseUrl().then((url) => {
+      if (url) {
+        this.authApiInput.value = url;
+      }
+    });
+  }
+
+  /**
+   * Сохранение слоя. Форму входа показываем только при showLoginSheetIfGuest === true (клик по дискете).
+   * Ctrl+Y / Cmd+Y вызывает с false — только подсказка, без формы.
+   */
+  private async requestSaveFromUser(showLoginSheetIfGuest: boolean): Promise<void> {
+    this.clearAuthErr();
+    this.hideSaveFeedback();
+    if (this.isDrawing || this.current) {
+      this.showSaveFeedback("Закончите текущий штрих, затем сохраните", "err");
+      return;
+    }
+    if (this.strokes.length === 0) {
+      this.showSaveFeedback("Нечего сохранять — нарисуйте что-нибудь", "err");
+      return;
+    }
+    const session = await getSession();
+    if (!session.accessToken) {
+      if (showLoginSheetIfGuest) {
+        this.pendingSaveAfterAuth = true;
+        this.authSheet.hidden = false;
+        this.authMsg.textContent =
+          "Пройдите авторизацию, чтобы сохранить слой на сервер. Укажите URL API и войдите по почте.";
+        this.syncAuthApiField();
+      } else {
+        this.showSaveFeedback(
+          "Вход не выполнен — нажмите дискету на панели, чтобы открыть форму входа (Ctrl+Y / Cmd+Y только сохраняет уже после входа).",
+          "err",
+        );
+      }
+      return;
+    }
+    await this.performUpload();
+  }
+
+  private readonly onSaveClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    await this.requestSaveFromUser(true);
+  };
+
+  private readonly onAuthCloseClick = (e: MouseEvent): void => {
+    e.stopPropagation();
+    this.authSheet.hidden = true;
+    this.pendingSaveAfterAuth = false;
+    this.clearAuthErr();
+  };
+
+  private readonly onAuthSaveUrlClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    this.clearAuthErr();
+    const url = this.authApiInput.value.trim();
+    const r = await bgSetApiBaseUrl(url);
+    if (!r.ok) {
+      this.showAuthErr(r.error);
+      return;
+    }
+    this.showSaveFeedback("URL API сохранён", "ok");
+  };
+
+  private readonly onAuthCheckMetaClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    this.clearAuthErr();
+    const r = await bgMeta();
+    if (!r.ok) {
+      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
+      return;
+    }
+    this.showSaveFeedback("Адрес сервера доступен — можно отправить код на почту", "ok");
+  };
+
+  private readonly onAuthSendCodeClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    this.clearAuthErr();
+    const email = this.authEmailInput.value.trim();
+    if (!email) {
+      this.showAuthErr("Введите email");
+      return;
+    }
+    const r = await bgAuthEmail(email);
+    if (!r.ok) {
+      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
+      return;
+    }
+    this.showSaveFeedback("Если почта известна серверу, код отправлен", "ok");
+  };
+
+  private readonly onAuthVerifyClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+    this.clearAuthErr();
+    const email = this.authEmailInput.value.trim();
+    const code = this.authCodeInput.value.trim();
+    if (!email || !code) {
+      this.showAuthErr("Нужны email и код");
+      return;
+    }
+    const r = await bgAuthVerify(email, code);
+    if (!r.ok) {
+      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
+      return;
+    }
+    this.authSheet.hidden = true;
+    this.clearAuthErr();
+    const shouldUpload = this.pendingSaveAfterAuth;
+    this.pendingSaveAfterAuth = false;
+    if (shouldUpload) {
+      await this.performUpload();
+    } else {
+      this.showSaveFeedback("Вход выполнен", "ok");
+    }
+  };
+
+  private async performUpload(): Promise<void> {
+    this.saveBtn.disabled = true;
+    this.hideSaveFeedback();
+    try {
+      const session = await getSession();
+      if (!session.accessToken) {
+        this.showSaveFeedback(
+          "Нет сессии — нажмите сохранение (дискета или Ctrl+Y / Cmd+Y) и войдите.",
+          "err",
+        );
+        return;
+      }
+      this.flushRedraw();
+      const blob = await new Promise<Blob | null>((resolve) => {
+        this.canvas.toBlob((b) => resolve(b), "image/png");
+      });
+      if (!blob) {
+        this.showSaveFeedback("Не удалось подготовить изображение", "err");
+        return;
+      }
+      const buffer = await blob.arrayBuffer();
+      const meta = {
+        pageUrl: location.href,
+        savedAt: new Date().toISOString(),
+        extensionVersion: chrome.runtime.getManifest().version,
+      };
+      const r = await bgUploadDrawing({
+        buffer,
+        mimeType: "image/png",
+        meta,
+      });
+      if (!r.ok) {
+        if (r.status === 401) {
+          this.showSaveFeedback(
+            "Сессия недействительна — нажмите сохранение снова (дискета или Ctrl+Y / Cmd+Y) и войдите.",
+            "err",
+          );
+        } else {
+          this.showSaveFeedback(r.error + (r.body ? ` ${r.body}` : ""), "err");
+        }
+        return;
+      }
+      this.showSaveFeedback("Сохранено на сервере", "ok");
+    } finally {
+      this.saveBtn.disabled = false;
+    }
+  }
 
   private resize(): void {
     const dpr = window.devicePixelRatio || 1;

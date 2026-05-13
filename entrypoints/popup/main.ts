@@ -1,21 +1,13 @@
+import {
+  bgAuthEmail,
+  bgAuthVerify,
+  bgLogout,
+  bgMeta,
+  bgSetApiBaseUrl,
+} from "../../src/lib/extension-api";
+import { ensureApiOriginFromExtensionPage } from "../../src/lib/ensure-api-origin";
+import { normalizeApiBaseUrl } from "../../src/lib/url";
 import { getApiBaseUrl, getSession } from "../../src/lib/storage";
-
-type BgResponse =
-  | { ok: true; data?: unknown }
-  | { ok: false; error: string; status?: number; body?: string };
-
-async function send(msg: object): Promise<BgResponse> {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(msg, (response: unknown) => {
-      const err = chrome.runtime.lastError;
-      if (err) {
-        reject(new Error(err.message));
-        return;
-      }
-      resolve(response as BgResponse);
-    });
-  });
-}
 
 function showErr(text: string) {
   const el = document.getElementById("err")!;
@@ -58,6 +50,18 @@ function $(id: string): HTMLInputElement {
   return document.getElementById(id) as HTMLInputElement;
 }
 
+async function resolveApiBaseFromUi(): Promise<string | null> {
+  const raw = $("apiUrl").value.trim();
+  if (raw) {
+    try {
+      return normalizeApiBaseUrl(raw);
+    } catch {
+      return null;
+    }
+  }
+  return getApiBaseUrl();
+}
+
 void refreshPanels();
 
 $("apiUrl").value = (await getApiBaseUrl()) ?? "";
@@ -65,7 +69,7 @@ $("apiUrl").value = (await getApiBaseUrl()) ?? "";
 document.getElementById("btnSaveServer")!.addEventListener("click", async () => {
   clearErr();
   const url = $("apiUrl").value;
-  const r = await send({ type: "config.setApiBase", url });
+  const r = await bgSetApiBaseUrl(url);
   if (!r.ok) {
     showErr(r.error);
     return;
@@ -75,16 +79,17 @@ document.getElementById("btnSaveServer")!.addEventListener("click", async () => 
 
 document.getElementById("btnCheckMeta")!.addEventListener("click", async () => {
   clearErr();
-  const perm = await send({ type: "permissions.ensureApiOrigin" });
-  if (!perm.ok) {
-    showErr(perm.error);
+  const base = await resolveApiBaseFromUi();
+  if (!base) {
+    showErr("Укажите корректный URL API в поле выше или сохраните сервер.");
     return;
   }
-  if (!perm.data) {
+  const granted = await ensureApiOriginFromExtensionPage(base);
+  if (!granted) {
     showErr("Доступ к домену API не выдан — разрешите запрос браузера.");
     return;
   }
-  const r = await send({ type: "api.meta" });
+  const r = await bgMeta();
   const out = document.getElementById("metaOut")!;
   if (!r.ok) {
     showErr(r.error + (r.body ? `\n${r.body}` : ""));
@@ -102,7 +107,17 @@ document.getElementById("btnSendCode")!.addEventListener("click", async () => {
     showErr("Введите email");
     return;
   }
-  const r = await send({ type: "api.authEmail", email });
+  const base = await resolveApiBaseFromUi();
+  if (!base) {
+    showErr("Укажите корректный URL API в поле выше или сохраните сервер.");
+    return;
+  }
+  const granted = await ensureApiOriginFromExtensionPage(base);
+  if (!granted) {
+    showErr("Доступ к домену API не выдан — разрешите запрос браузера.");
+    return;
+  }
+  const r = await bgAuthEmail(email);
   if (!r.ok) {
     showErr(r.error + (r.body ? `\n${r.body}` : ""));
     return;
@@ -118,7 +133,17 @@ document.getElementById("btnVerify")!.addEventListener("click", async () => {
     showErr("Нужны email и код");
     return;
   }
-  const r = await send({ type: "api.authVerify", email, code });
+  const base = await resolveApiBaseFromUi();
+  if (!base) {
+    showErr("Укажите корректный URL API в поле выше или сохраните сервер.");
+    return;
+  }
+  const granted = await ensureApiOriginFromExtensionPage(base);
+  if (!granted) {
+    showErr("Доступ к домену API не выдан — разрешите запрос браузера.");
+    return;
+  }
+  const r = await bgAuthVerify(email, code);
   if (!r.ok) {
     showErr(r.error + (r.body ? `\n${r.body}` : ""));
     return;
@@ -128,7 +153,7 @@ document.getElementById("btnVerify")!.addEventListener("click", async () => {
 
 document.getElementById("btnLogout")!.addEventListener("click", async () => {
   clearErr();
-  const r = await send({ type: "api.logout" });
+  const r = await bgLogout();
   if (!r.ok) {
     showErr(r.error);
     return;
