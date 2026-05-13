@@ -336,8 +336,30 @@ function ensureHost(): void {
     }
     .color-row {
       display: flex;
-      align-items: flex-start;
-      gap: 8px;
+      align-items: center;
+      gap: 6px;
+    }
+    .swap-colors-btn {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      margin: 0;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(0, 0, 0, 0.22);
+      color: #bdc1c6;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .swap-colors-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e8eaed;
+      border-color: rgba(255, 255, 255, 0.35);
     }
     .pick-hint {
       margin: 0 0 6px;
@@ -426,10 +448,11 @@ function ensureHost(): void {
       <label title="Толщина ластика">Размер ластика <input type="range" id="vgf-eraser-size" min="2" max="96" value="24" title="Размер ластика" /></label>
     </div>
     <div class="color-row">
-      <div class="dual-color" title="Поменять передний и задний: Ctrl+X">
+      <div class="dual-color">
         <button type="button" class="dc-bg" id="vgf-dc-bg" aria-label="Задний цвет"></button>
         <button type="button" class="dc-fg" id="vgf-dc-fg" aria-label="Передний цвет кисти"></button>
       </div>
+      <button type="button" class="swap-colors-btn" id="vgf-swap-colors" title="Поменять передний и задний цвет (Ctrl+X или Cmd+X)" aria-label="Поменять местами передний и задний цвет">⇄</button>
     </div>
     <div id="vgf-swatches-wrap" class="swatches-wrap" hidden data-pick="fg">
       <p class="pick-hint" id="vgf-pick-hint">Передний цвет</p>
@@ -453,6 +476,7 @@ function ensureHost(): void {
   const pickHintEl = bar.querySelector<HTMLParagraphElement>("#vgf-pick-hint")!;
   const dcFg = bar.querySelector<HTMLButtonElement>("#vgf-dc-fg")!;
   const dcBg = bar.querySelector<HTMLButtonElement>("#vgf-dc-bg")!;
+  const swapColorsBtn = bar.querySelector<HTMLButtonElement>("#vgf-swap-colors")!;
   for (const hex of SWATCHES) {
     const b = document.createElement("button");
     b.type = "button";
@@ -585,6 +609,15 @@ function ensureHost(): void {
       btn.classList.toggle("is-fg", lower === fgLower);
       btn.classList.toggle("is-bg", lower === bgLower);
     });
+  }
+
+  function swapFgBgColors(): void {
+    const t = fgColor;
+    fgColor = bgColor;
+    bgColor = t;
+    syncDualColor();
+    syncSwatches();
+    scheduleRedraw();
   }
 
   function applyBarPosition(): void {
@@ -832,12 +865,7 @@ function ensureHost(): void {
         return;
       }
       if (k === "x" && !e.shiftKey) {
-        const t = fgColor;
-        fgColor = bgColor;
-        bgColor = t;
-        syncDualColor();
-        syncSwatches();
-        scheduleRedraw();
+        swapFgBgColors();
         e.preventDefault();
         e.stopPropagation();
         return;
@@ -892,6 +920,11 @@ function ensureHost(): void {
     swatchesWrap.hidden = false;
     syncPickUi();
     syncSwatches();
+  });
+
+  swapColorsBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    swapFgBgColors();
   });
 
   swatchHost.addEventListener("click", (e) => {
