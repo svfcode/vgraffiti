@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vgraffiti</title>
+    <link rel="stylesheet" href="./popup/style.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <h1>vgraffiti</h1>
+
+      <section class="intro">
+        <p>
+          <strong>Рисование</strong> на Google Maps / панораме работает <strong>сразу</strong> — откройте
+          карту, рисуйте в оверлее. <strong>Вход</strong> не обязателен.
+        </p>
+        <p class="muted">
+          Разверните <strong>Вход</strong>, укажите API и почту, если нужны синхронизация, сохранение на
+          сервер и <strong>мета прогулок</strong>.
+        </p>
+      </section>
+
+      <section id="panelAuthed" class="panel" hidden>
+        <p id="authedSummary" class="muted"></p>
+        <button id="btnLogout" type="button">Выйти</button>
+      </section>
+
+      <section id="panelGuest" class="panel">
+        <details class="sync">
+          <summary>Вход</summary>
+
+          <p id="guestHint" class="muted small"></p>
+          <p class="muted small">
+            Контракт путей: <code>docs/api.md</code>. Для запросов к API браузер запросит доступ к домену
+            сервера.
+          </p>
+
+          <section class="inner">
+            <h2>Сервер</h2>
+            <label class="block">
+              <span>Базовый URL API</span>
+              <input id="apiUrl" type="url" placeholder="https://site.ru/wp-json/vgraffiti/v1" autocomplete="off" />
+            </label>
+            <div class="row">
+              <button id="btnSaveServer" type="button">Сохранить</button>
+              <button id="btnCheckMeta" type="button">Проверить /meta</button>
+            </div>
+            <pre id="metaOut" class="out" hidden></pre>
+          </section>
+
+          <section class="inner">
+            <h2>Почта</h2>
+            <label class="block">
+              <span>Email</span>
+              <input id="email" type="email" autocomplete="email" />
+            </label>
+            <button id="btnSendCode" type="button">Отправить код</button>
+            <label class="block mt">
+              <span>Код из письма</span>
+              <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" />
+            </label>
+            <button id="btnVerify" type="button">Подтвердить</button>
+          </section>
+        </details>
+      </section>
+
+      <p id="err" class="err" hidden></p>
+    </main>
+    <script type="module" src="./popup/main.ts"></script>
+  </body>
+</html>
