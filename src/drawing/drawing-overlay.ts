@@ -1,13 +1,9 @@
 import overlayCss from "./overlay-panel.css?raw";
 import barMarkup from "./overlay-panel.html?raw";
 import {
-  bgAuthEmail,
-  bgAuthVerify,
-  bgMeta,
-  bgSetApiBaseUrl,
   bgUploadDrawing,
 } from "../lib/extension-api";
-import { getApiBaseUrl, getSession } from "../lib/storage";
+import { getSession } from "../lib/storage";
 import { drawArrow, drawSquareStroke } from "./shapes";
 import {
   coalescedOrSelf,
@@ -18,6 +14,10 @@ import {
 } from "./stroke";
 
 const Z_OVERLAY = 2147483000;
+
+/** Подсказка гостю: вход и доступ к API только из окна расширения (user gesture для разрешений). */
+const GUEST_SAVE_INSTRUCTION =
+  "Чтобы сохранить на сервер, войдите через окно расширения: меню расширений браузера (иконка пазла) → vgraffiti → укажите URL API, «Проверить адрес», вход по почте. Затем снова нажмите сохранение здесь.";
 
 const SWATCHES = [
   "#000000",
@@ -124,19 +124,6 @@ export class DrawingOverlay {
   private readonly redoBtn: HTMLButtonElement;
   private readonly saveBtn: HTMLButtonElement;
   private readonly saveFeedback: HTMLParagraphElement;
-  private readonly authSheet: HTMLDivElement;
-  private readonly authMsg: HTMLParagraphElement;
-  private readonly authErr: HTMLParagraphElement;
-  private readonly authApiInput: HTMLInputElement;
-  private readonly authSaveUrlBtn: HTMLButtonElement;
-  private readonly authCheckMetaBtn: HTMLButtonElement;
-  private readonly authEmailInput: HTMLInputElement;
-  private readonly authSendCodeBtn: HTMLButtonElement;
-  private readonly authCodeInput: HTMLInputElement;
-  private readonly authVerifyBtn: HTMLButtonElement;
-  private readonly authCloseBtn: HTMLButtonElement;
-
-  private pendingSaveAfterAuth = false;
 
   private activeTool: ToolId = "brush";
   private uiMode: UiMode = "draw";
@@ -217,17 +204,6 @@ export class DrawingOverlay {
     this.redoBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-redo")!;
     this.saveBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-save")!;
     this.saveFeedback = this.bar.querySelector<HTMLParagraphElement>("#vgf-save-feedback")!;
-    this.authSheet = this.bar.querySelector<HTMLDivElement>("#vgf-auth-sheet")!;
-    this.authMsg = this.bar.querySelector<HTMLParagraphElement>("#vgf-auth-msg")!;
-    this.authErr = this.bar.querySelector<HTMLParagraphElement>("#vgf-auth-err")!;
-    this.authApiInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-api")!;
-    this.authSaveUrlBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-save-url")!;
-    this.authCheckMetaBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-check-meta")!;
-    this.authEmailInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-email")!;
-    this.authSendCodeBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-send-code")!;
-    this.authCodeInput = this.bar.querySelector<HTMLInputElement>("#vgf-auth-code")!;
-    this.authVerifyBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-verify")!;
-    this.authCloseBtn = this.bar.querySelector<HTMLButtonElement>("#vgf-auth-close")!;
   }
 
   private init(): void {
@@ -245,11 +221,6 @@ export class DrawingOverlay {
     this.undoBtn.addEventListener("click", this.onUndoClick);
     this.redoBtn.addEventListener("click", this.onRedoClick);
     this.saveBtn.addEventListener("click", this.onSaveClick);
-    this.authSaveUrlBtn.addEventListener("click", this.onAuthSaveUrlClick);
-    this.authCheckMetaBtn.addEventListener("click", this.onAuthCheckMetaClick);
-    this.authSendCodeBtn.addEventListener("click", this.onAuthSendCodeClick);
-    this.authVerifyBtn.addEventListener("click", this.onAuthVerifyClick);
-    this.authCloseBtn.addEventListener("click", this.onAuthCloseClick);
     window.addEventListener("keydown", this.onWindowKeyDown, true);
 
     this.bar.querySelectorAll<HTMLButtonElement>(".tool").forEach((btn) => {
@@ -291,7 +262,6 @@ export class DrawingOverlay {
     this.applyBarPosition();
     this.syncUndoRedoButtons();
     this.resize();
-    this.authSheet.hidden = true;
   }
 
   private readonly onGlobalPointerUp = (ev: PointerEvent): void => {
@@ -654,7 +624,7 @@ export class DrawingOverlay {
       return;
     }
     if (k === "y" && !e.shiftKey) {
-      void this.requestSaveFromUser(false);
+      void this.requestSaveFromUser();
       e.preventDefault();
       e.stopPropagation();
       return;
@@ -887,30 +857,10 @@ export class DrawingOverlay {
     this.saveFeedback.classList.remove("err");
   }
 
-  private clearAuthErr(): void {
-    this.authErr.hidden = true;
-    this.authErr.textContent = "";
-  }
-
-  private showAuthErr(text: string): void {
-    this.authErr.textContent = text;
-    this.authErr.hidden = false;
-  }
-
-  private syncAuthApiField(): void {
-    void getApiBaseUrl().then((url) => {
-      if (url) {
-        this.authApiInput.value = url;
-      }
-    });
-  }
-
   /**
-   * Сохранение слоя. Форму входа показываем только при showLoginSheetIfGuest === true (клик по дискете).
-   * Ctrl+Y / Cmd+Y вызывает с false — только подсказка, без формы.
+   * Сохранение слоя. Без сессии — только подсказка: вход через окно расширения (разрешения API).
    */
-  private async requestSaveFromUser(showLoginSheetIfGuest: boolean): Promise<void> {
-    this.clearAuthErr();
+  private async requestSaveFromUser(): Promise<void> {
     this.hideSaveFeedback();
     if (this.isDrawing || this.current) {
       this.showSaveFeedback("Закончите текущий штрих, затем сохраните", "err");
@@ -922,18 +872,7 @@ export class DrawingOverlay {
     }
     const session = await getSession();
     if (!session.accessToken) {
-      if (showLoginSheetIfGuest) {
-        this.pendingSaveAfterAuth = true;
-        this.authSheet.hidden = false;
-        this.authMsg.textContent =
-          "Пройдите авторизацию, чтобы сохранить слой на сервер. Укажите URL API и войдите по почте.";
-        this.syncAuthApiField();
-      } else {
-        this.showSaveFeedback(
-          "Вход не выполнен — нажмите дискету на панели, чтобы открыть форму входа (Ctrl+Y / Cmd+Y только сохраняет уже после входа).",
-          "err",
-        );
-      }
+      this.showSaveFeedback(GUEST_SAVE_INSTRUCTION, "err");
       return;
     }
     await this.performUpload();
@@ -941,78 +880,7 @@ export class DrawingOverlay {
 
   private readonly onSaveClick = async (e: MouseEvent): Promise<void> => {
     e.stopPropagation();
-    await this.requestSaveFromUser(true);
-  };
-
-  private readonly onAuthCloseClick = (e: MouseEvent): void => {
-    e.stopPropagation();
-    this.authSheet.hidden = true;
-    this.pendingSaveAfterAuth = false;
-    this.clearAuthErr();
-  };
-
-  private readonly onAuthSaveUrlClick = async (e: MouseEvent): Promise<void> => {
-    e.stopPropagation();
-    this.clearAuthErr();
-    const url = this.authApiInput.value.trim();
-    const r = await bgSetApiBaseUrl(url);
-    if (!r.ok) {
-      this.showAuthErr(r.error);
-      return;
-    }
-    this.showSaveFeedback("URL API сохранён", "ok");
-  };
-
-  private readonly onAuthCheckMetaClick = async (e: MouseEvent): Promise<void> => {
-    e.stopPropagation();
-    this.clearAuthErr();
-    const r = await bgMeta();
-    if (!r.ok) {
-      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
-      return;
-    }
-    this.showSaveFeedback("Адрес сервера доступен — можно отправить код на почту", "ok");
-  };
-
-  private readonly onAuthSendCodeClick = async (e: MouseEvent): Promise<void> => {
-    e.stopPropagation();
-    this.clearAuthErr();
-    const email = this.authEmailInput.value.trim();
-    if (!email) {
-      this.showAuthErr("Введите email");
-      return;
-    }
-    const r = await bgAuthEmail(email);
-    if (!r.ok) {
-      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
-      return;
-    }
-    this.showSaveFeedback("Если почта известна серверу, код отправлен", "ok");
-  };
-
-  private readonly onAuthVerifyClick = async (e: MouseEvent): Promise<void> => {
-    e.stopPropagation();
-    this.clearAuthErr();
-    const email = this.authEmailInput.value.trim();
-    const code = this.authCodeInput.value.trim();
-    if (!email || !code) {
-      this.showAuthErr("Нужны email и код");
-      return;
-    }
-    const r = await bgAuthVerify(email, code);
-    if (!r.ok) {
-      this.showAuthErr(r.error + (r.body ? `\n${r.body}` : ""));
-      return;
-    }
-    this.authSheet.hidden = true;
-    this.clearAuthErr();
-    const shouldUpload = this.pendingSaveAfterAuth;
-    this.pendingSaveAfterAuth = false;
-    if (shouldUpload) {
-      await this.performUpload();
-    } else {
-      this.showSaveFeedback("Вход выполнен", "ok");
-    }
+    await this.requestSaveFromUser();
   };
 
   private async performUpload(): Promise<void> {
@@ -1022,7 +890,7 @@ export class DrawingOverlay {
       const session = await getSession();
       if (!session.accessToken) {
         this.showSaveFeedback(
-          "Нет сессии — нажмите сохранение (дискета или Ctrl+Y / Cmd+Y) и войдите.",
+          "Нет сессии — войдите через окно расширения (меню расширений → vgraffiti), затем сохраните снова.",
           "err",
         );
         return;
@@ -1049,7 +917,7 @@ export class DrawingOverlay {
       if (!r.ok) {
         if (r.status === 401) {
           this.showSaveFeedback(
-            "Сессия недействительна — нажмите сохранение снова (дискета или Ctrl+Y / Cmd+Y) и войдите.",
+            "Сессия недействительна — войдите снова через окно расширения, затем сохраните.",
             "err",
           );
         } else {

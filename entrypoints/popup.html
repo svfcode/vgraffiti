@@ -40,13 +40,13 @@
             <h2>Сервер</h2>
             <label class="block">
               <span>Базовый URL API</span>
-              <input id="apiUrl" type="url" placeholder="https://site.ru/wp-json/vgraffiti/v1" autocomplete="off" />
+              <input id="apiUrl" type="url" placeholder="http://drawonit.loc/wp-json/vgraffiti/v1" autocomplete="off" />
             </label>
             <div class="row">
               <button id="btnSaveServer" type="button">Сохранить</button>
               <button id="btnCheckMeta" type="button" title="Проверка доступности сервера по указанному адресу API">Проверить адрес</button>
             </div>
-            <pre id="metaOut" class="out" hidden></pre>
+            <div id="metaOut" class="out meta-out" hidden></div>
           </section>
 
           <section class="inner">
@@ -56,11 +56,13 @@
               <input id="email" type="email" autocomplete="email" />
             </label>
             <button id="btnSendCode" type="button">Отправить код</button>
-            <label class="block mt">
-              <span>Код из письма</span>
-              <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" />
-            </label>
-            <button id="btnVerify" type="button">Подтвердить</button>
+            <div id="codeStep" class="code-step" hidden>
+              <label class="block mt">
+                <span>Код из письма</span>
+                <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" />
+              </label>
+              <button id="btnVerify" type="button">Подтвердить</button>
+            </div>
           </section>
         </details>
       </section>
