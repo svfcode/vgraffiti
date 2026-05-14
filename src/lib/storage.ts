@@ -1,6 +1,8 @@
 import {
+  AUTH_CODE_COOLDOWN_MS,
   STORAGE_ACCESS_TOKEN,
   STORAGE_API_BASE,
+  STORAGE_LAST_AUTH_CODE_SENT_AT,
   STORAGE_TOKEN_EXPIRES_AT,
   STORAGE_USER_EMAIL,
 } from "./constants";
@@ -56,5 +58,24 @@ export async function clearSession(): Promise<void> {
     STORAGE_ACCESS_TOKEN,
     STORAGE_TOKEN_EXPIRES_AT,
     STORAGE_USER_EMAIL,
+    STORAGE_LAST_AUTH_CODE_SENT_AT,
   ]);
+}
+
+/** Остаток клиентского cooldown для «Отправить код», мс (0 — можно отправить). */
+export function remainingSendCodeCooldownMs(lastSentAt: number | null, now = Date.now()): number {
+  if (lastSentAt == null || lastSentAt <= 0) {
+    return 0;
+  }
+  return Math.max(0, lastSentAt + AUTH_CODE_COOLDOWN_MS - now);
+}
+
+export async function getLastAuthCodeSentAt(): Promise<number | null> {
+  const r = await chrome.storage.local.get(STORAGE_LAST_AUTH_CODE_SENT_AT);
+  const v = r[STORAGE_LAST_AUTH_CODE_SENT_AT];
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+export async function setLastAuthCodeSentNow(): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_LAST_AUTH_CODE_SENT_AT]: Date.now() });
 }

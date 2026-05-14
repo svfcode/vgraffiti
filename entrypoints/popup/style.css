@@ -19,23 +19,19 @@ body {
   margin-top: 14px;
 }
 
-.intro {
-  margin-bottom: 16px;
+.authed-profile-row {
+  margin: 8px 0 12px;
 }
 
-.intro p {
-  margin: 0 0 8px;
-  line-height: 1.45;
+.profile-site-link {
+  color: #8ab4f8;
   font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
 }
 
-.intro p:last-child {
-  margin-bottom: 0;
-}
-
-.small {
-  font-size: 11px;
-  margin: 0 0 12px;
+.profile-site-link:hover {
+  text-decoration: underline;
 }
 
 details.sync {
@@ -84,6 +80,11 @@ h2 {
   color: #9aa0a6;
   font-size: 12px;
   line-height: 1.4;
+}
+
+.small {
+  font-size: 11px;
+  margin: 0 0 12px;
 }
 
 code {
@@ -158,8 +159,13 @@ button:hover:not(:disabled) {
   }
 }
 
-.code-step {
-  margin-top: 4px;
+.send-code-hint {
+  margin: 6px 0 0;
+}
+
+.send-code-cooldown-live {
+  margin: 4px 0 0;
+  color: #fdd663;
 }
 
 .mt {

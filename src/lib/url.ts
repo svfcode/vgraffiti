@@ -25,3 +25,11 @@ export function originFromApiBase(apiBaseUrl: string): string {
   const u = new URL(apiBaseUrl);
   return u.origin;
 }
+
+/**
+ * Ссылка на типичную страницу профиля WordPress (админка).
+ * Для не-WP API при необходимости заменить на URL из ответа сервера.
+ */
+export function wpAdminProfileUrlFromApiBase(apiBaseUrl: string): string {
+  return `${originFromApiBase(apiBaseUrl)}/wp-admin/profile.php`;
+}

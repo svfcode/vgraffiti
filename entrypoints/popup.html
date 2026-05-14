@@ -10,19 +10,17 @@
     <main class="wrap">
       <h1>vgraffiti</h1>
 
-      <section class="intro">
-        <p>
-          <strong>Рисование</strong> на Google Maps / панораме работает <strong>сразу</strong> — откройте
-          карту, рисуйте в оверлее. <strong>Вход</strong> не обязателен.
-        </p>
-        <p class="muted">
-          Разверните <strong>Вход</strong>, укажите API и почту, если нужны синхронизация, сохранение на
-          сервер и <strong>мета прогулок</strong>.
-        </p>
-      </section>
-
       <section id="panelAuthed" class="panel" hidden>
         <p id="authedSummary" class="muted"></p>
+        <p class="authed-profile-row">
+          <a
+            id="profileSiteLink"
+            class="profile-site-link"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Профиль на сайте</a>
+        </p>
         <button id="btnLogout" type="button">Выйти</button>
       </section>
 
@@ -56,6 +54,10 @@
               <input id="email" type="email" autocomplete="email" />
             </label>
             <button id="btnSendCode" type="button">Отправить код</button>
+            <p class="muted small send-code-hint">
+              Повторная отправка кода — не чаще одного раза в 2 минуты.
+            </p>
+            <p id="sendCodeCooldownLive" class="muted small send-code-cooldown-live" hidden></p>
             <div id="codeStep" class="code-step" hidden>
               <label class="block mt">
                 <span>Код из письма</span>

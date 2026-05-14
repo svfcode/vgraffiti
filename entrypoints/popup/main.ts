@@ -6,10 +6,64 @@ import {
   bgSetApiBaseUrl,
 } from "../../src/lib/extension-api";
 import { ensureApiOriginFromExtensionPage } from "../../src/lib/ensure-api-origin";
-import { normalizeApiBaseUrl } from "../../src/lib/url";
+import { normalizeApiBaseUrl, wpAdminProfileUrlFromApiBase } from "../../src/lib/url";
 import { DEFAULT_API_BASE_URL } from "../../src/lib/constants";
 import { formatMetaHuman } from "../../src/lib/format-meta-human";
-import { getApiBaseUrl, getSession } from "../../src/lib/storage";
+import {
+  getApiBaseUrl,
+  getLastAuthCodeSentAt,
+  getSession,
+  remainingSendCodeCooldownMs,
+  setLastAuthCodeSentNow,
+} from "../../src/lib/storage";
+
+let sendCodeCooldownIntervalId: number | null = null;
+
+function getSendCodeBtn(): HTMLButtonElement {
+  return document.getElementById("btnSendCode") as HTMLButtonElement;
+}
+
+function formatMmSs(ms: number): string {
+  const totalSec = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function stopSendCodeCooldownTicker(): void {
+  if (sendCodeCooldownIntervalId != null) {
+    clearInterval(sendCodeCooldownIntervalId);
+    sendCodeCooldownIntervalId = null;
+  }
+}
+
+async function syncSendCodeCooldownUi(): Promise<void> {
+  const btn = getSendCodeBtn();
+  const last = await getLastAuthCodeSentAt();
+  const rem = remainingSendCodeCooldownMs(last);
+  const live = document.getElementById("sendCodeCooldownLive")!;
+  const busy = document.body.classList.contains("popup--loading");
+
+  if (rem > 0) {
+    live.hidden = false;
+    live.textContent = `Следующая отправка через ${formatMmSs(rem)}.`;
+    btn.disabled = true;
+    btn.title = `Повторная отправка через ${formatMmSs(rem)}`;
+    if (sendCodeCooldownIntervalId == null) {
+      sendCodeCooldownIntervalId = window.setInterval(() => {
+        void syncSendCodeCooldownUi();
+      }, 1000);
+    }
+  } else {
+    live.hidden = true;
+    live.textContent = "";
+    btn.title = "";
+    stopSendCodeCooldownTicker();
+    if (!busy) {
+      btn.disabled = false;
+    }
+  }
+}
 
 function setButtonLoading(btn: HTMLButtonElement, loading: boolean): void {
   btn.classList.toggle("is-loading", loading);
@@ -27,7 +81,7 @@ function setButtonLoading(btn: HTMLButtonElement, loading: boolean): void {
   }
 }
 
-/** При каждом открытии popup — снять зависшее состояние загрузки. */
+/** При каждом открытии popup — снять зависшее состояние загрузки и применить cooldown «Отправить код». */
 function resetAllButtonLoaders(): void {
   document.body.classList.remove("popup--loading");
   document.querySelectorAll("button").forEach((el) => {
@@ -39,6 +93,7 @@ function resetAllButtonLoaders(): void {
     el.querySelector(".btn-loader__spin")?.remove();
     el.disabled = false;
   });
+  void syncSendCodeCooldownUi();
 }
 
 async function withButtonLoad<T>(btn: HTMLButtonElement, fn: () => Promise<T>): Promise<T> {
@@ -49,6 +104,7 @@ async function withButtonLoad<T>(btn: HTMLButtonElement, fn: () => Promise<T>): 
   } finally {
     setButtonLoading(btn, false);
     document.body.classList.remove("popup--loading");
+    void syncSendCodeCooldownUi();
   }
 }
 
@@ -141,7 +197,16 @@ async function refreshPanels(): Promise<void> {
   if (s.accessToken) {
     panelAuthed.hidden = false;
     panelGuest.hidden = true;
-    authedSummary.textContent = `Сервер: ${base ?? "—"} — вошли как ${s.email ?? "?"}.`;
+    authedSummary.textContent = `Вошли как ${s.email ?? "?"}. Сервер: ${base ?? "—"}.`;
+    const profileLink = document.getElementById("profileSiteLink") as HTMLAnchorElement;
+    const profileRow = profileLink.closest(".authed-profile-row") as HTMLElement;
+    if (base) {
+      profileRow.hidden = false;
+      profileLink.href = wpAdminProfileUrlFromApiBase(base);
+    } else {
+      profileRow.hidden = true;
+      profileLink.removeAttribute("href");
+    }
     return;
   }
 
@@ -229,37 +294,50 @@ btnCheckMeta.addEventListener("click", async () => {
 
 btnSendCode.addEventListener("click", async () => {
   clearErr();
-  const email = $("email").value.trim();
-  if (!email) {
-    showErr("Введите email");
-    return;
-  }
-  const base = await resolveApiBaseFromUi();
-  if (!base) {
-    showErr("Укажите корректный URL API в поле выше или сохраните сервер.");
-    return;
-  }
-  showCodeStep();
-  const flow = await withButtonLoad(btnSendCode, async () => {
-    const granted = await ensureApiOriginFromExtensionPage(base);
-    if (!granted) {
-      return { kind: "permission" as const };
+  try {
+    const email = $("email").value.trim();
+    if (!email) {
+      showErr("Введите email");
+      return;
     }
-    return { kind: "auth" as const, r: await bgAuthEmail(email) };
-  });
+    const base = await resolveApiBaseFromUi();
+    if (!base) {
+      showErr("Укажите корректный URL API в поле выше или сохраните сервер.");
+      return;
+    }
+    const rem = remainingSendCodeCooldownMs(await getLastAuthCodeSentAt());
+    if (rem > 0) {
+      showErr(`Повторная отправка кода возможна через ${formatMmSs(rem)}.`);
+      return;
+    }
+    showCodeStep();
+    const flow = await withButtonLoad(btnSendCode, async () => {
+      const granted = await ensureApiOriginFromExtensionPage(base);
+      if (!granted) {
+        return { kind: "permission" as const };
+      }
+      const r = await bgAuthEmail(email);
+      if (r.ok) {
+        await setLastAuthCodeSentNow();
+      }
+      return { kind: "auth" as const, r };
+    });
 
-  if (flow.kind === "permission") {
-    showErr("Доступ к домену API не выдан — разрешите запрос браузера.");
-    hideCodeStep();
-    return;
+    if (flow.kind === "permission") {
+      showErr("Доступ к домену API не выдан — разрешите запрос браузера.");
+      hideCodeStep();
+      return;
+    }
+    const r = flow.r;
+    if (!r.ok) {
+      showErr(r.error + (r.body ? `\n${r.body}` : ""));
+      hideCodeStep();
+      return;
+    }
+    await refreshPanels();
+  } finally {
+    await syncSendCodeCooldownUi();
   }
-  const r = flow.r;
-  if (!r.ok) {
-    showErr(r.error + (r.body ? `\n${r.body}` : ""));
-    hideCodeStep();
-    return;
-  }
-  await refreshPanels();
 });
 
 btnVerify.addEventListener("click", async () => {
@@ -304,6 +382,7 @@ btnLogout.addEventListener("click", async () => {
   }
   await refreshPanels();
   hideCodeStep();
+  await syncSendCodeCooldownUi();
 });
 
 resetAllButtonLoaders();
