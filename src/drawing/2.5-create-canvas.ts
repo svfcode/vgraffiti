@@ -16,8 +16,8 @@ export function createCanvas(root: HTMLDivElement, bar: HTMLDivElement): CanvasE
   sizeCursorEl.hidden = true;
 
   root.appendChild(canvas);
-  root.appendChild(sizeCursorEl);
   root.appendChild(bar);
+  root.appendChild(sizeCursorEl);
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
@@ -30,6 +30,7 @@ export function createCanvas(root: HTMLDivElement, bar: HTMLDivElement): CanvasE
 export function bindCanvasEvents(host: DrawingOverlayHost): void {
   host.canvas.addEventListener("pointerdown", (ev) => onCanvasPointerDown(host, ev));
   host.canvas.addEventListener("pointermove", (ev) => onCanvasPointerMove(host, ev));
+  host.canvas.addEventListener("pointerenter", (ev) => onCanvasPointerEnter(host, ev));
   host.canvas.addEventListener("pointerleave", () => onCanvasPointerLeave(host));
   host.canvas.addEventListener("pointerup", (ev) => host.finishStroke(ev));
   host.canvas.addEventListener("pointercancel", (ev) => host.finishStroke(ev));
@@ -107,6 +108,14 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
     cur.y1 = y;
   }
   host.scheduleRedraw();
+}
+
+function onCanvasPointerEnter(host: DrawingOverlayHost, ev: PointerEvent): void {
+  host.lastHoverClient.x = ev.clientX;
+  host.lastHoverClient.y = ev.clientY;
+  if (host.wantsSizeCursor()) {
+    host.showSizeCursorAt(ev.clientX, ev.clientY);
+  }
 }
 
 function onCanvasPointerLeave(host: DrawingOverlayHost): void {

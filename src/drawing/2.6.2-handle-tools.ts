@@ -6,7 +6,7 @@ import {
 } from "./2.1-overlay-types";
 
 export function getBrushSize(host: DrawingOverlayHost): number {
-  return Number(host.brushSizeEl.value) || 16;
+  return Number(host.brushSizeEl.value) || 5;
 }
 
 export function getEraserSize(host: DrawingOverlayHost): number {
@@ -14,7 +14,11 @@ export function getEraserSize(host: DrawingOverlayHost): number {
 }
 
 export function wantsSizeCursor(host: DrawingOverlayHost): boolean {
-  return host.uiMode === "draw" && (host.activeTool === "brush" || host.activeTool === "eraser");
+  return host.activeTool === "brush" || host.activeTool === "eraser";
+}
+
+export function getActiveToolSize(host: DrawingOverlayHost): number {
+  return host.activeTool === "eraser" ? getEraserSize(host) : getBrushSize(host);
 }
 
 export function syncCanvasPointerCursor(host: DrawingOverlayHost): void {
@@ -23,6 +27,7 @@ export function syncCanvasPointerCursor(host: DrawingOverlayHost): void {
 
 export function hideSizeCursor(host: DrawingOverlayHost): void {
   host.sizeCursorEl.hidden = true;
+  host.sizeCursorEl.classList.remove("eraser");
 }
 
 export function showSizeCursorAt(host: DrawingOverlayHost, clientX: number, clientY: number): void {
@@ -31,8 +36,9 @@ export function showSizeCursorAt(host: DrawingOverlayHost, clientX: number, clie
     return;
   }
   const rr = host.root.getBoundingClientRect();
-  const dia = host.activeTool === "eraser" ? getEraserSize(host) : getBrushSize(host);
-  host.sizeCursorEl.classList.toggle("eraser", host.activeTool === "eraser");
+  const isEraser = host.activeTool === "eraser";
+  const dia = getActiveToolSize(host);
+  host.sizeCursorEl.classList.toggle("eraser", isEraser);
   host.sizeCursorEl.style.width = `${dia}px`;
   host.sizeCursorEl.style.height = `${dia}px`;
   host.sizeCursorEl.style.left = `${clientX - rr.left}px`;
@@ -45,6 +51,22 @@ export function syncSizeRows(host: DrawingOverlayHost): void {
     host.activeTool === "brush" || host.activeTool === "arrow" || host.activeTool === "square";
   host.brushWrap.hidden = !brushTools;
   host.eraserWrap.hidden = host.activeTool !== "eraser";
+  syncBrushSizeLabel(host);
+  syncEraserSizeLabel(host);
+}
+
+function syncBrushSizeLabel(host: DrawingOverlayHost): void {
+  const el = host.bar.querySelector<HTMLSpanElement>("#vgf-brush-size-val");
+  if (el) {
+    el.textContent = String(getBrushSize(host));
+  }
+}
+
+function syncEraserSizeLabel(host: DrawingOverlayHost): void {
+  const el = host.bar.querySelector<HTMLSpanElement>("#vgf-eraser-size-val");
+  if (el) {
+    el.textContent = String(getEraserSize(host));
+  }
 }
 
 export function cycleToolForward(host: DrawingOverlayHost): void {
@@ -73,10 +95,10 @@ export function syncModeButtons(host: DrawingOverlayHost): void {
   });
   host.canvas.classList.toggle("mode-nav", host.uiMode === "nav");
   syncCanvasPointerCursor(host);
-  if (host.uiMode === "nav") {
-    hideSizeCursor(host);
-  } else if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
+  if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
     showSizeCursorAt(host, host.lastHoverClient.x, host.lastHoverClient.y);
+  } else if (!wantsSizeCursor(host)) {
+    hideSizeCursor(host);
   }
 }
 
@@ -203,6 +225,7 @@ function onSwatchHostClick(host: DrawingOverlayHost, e: MouseEvent): void {
 }
 
 function onBrushSizeInput(host: DrawingOverlayHost): void {
+  syncBrushSizeLabel(host);
   host.scheduleRedraw();
   if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
     showSizeCursorAt(host, host.lastHoverClient.x, host.lastHoverClient.y);
@@ -210,6 +233,7 @@ function onBrushSizeInput(host: DrawingOverlayHost): void {
 }
 
 function onEraserSizeInput(host: DrawingOverlayHost): void {
+  syncEraserSizeLabel(host);
   host.scheduleRedraw();
   if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
     showSizeCursorAt(host, host.lastHoverClient.x, host.lastHoverClient.y);

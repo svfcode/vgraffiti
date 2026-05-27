@@ -10,6 +10,7 @@
 canvas.layer {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: auto;
   touch-action: none;
   cursor: crosshair;
@@ -20,7 +21,7 @@ canvas.layer.vgf-hide-cursor {
 .size-cursor {
   position: absolute;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
   border-radius: 50%;
   box-sizing: border-box;
   border: 2px solid rgba(255, 255, 255, 0.9);
@@ -31,14 +32,18 @@ canvas.layer.vgf-hide-cursor {
   background: rgba(255, 255, 255, 0.06);
 }
 .size-cursor.eraser {
-  border-style: dashed;
-  background: rgba(255, 255, 255, 0.03);
+  border: 2px dashed rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
 .bar {
   position: absolute;
   top: 10px;
   right: 10px;
   left: auto;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -193,6 +198,17 @@ canvas.layer.vgf-hide-cursor {
   gap: 4px;
   font-size: 11px;
   color: #bdc1c6;
+}
+.size-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.size-value {
+  font-size: 9px;
+  color: #9aa0a6;
+  font-variant-numeric: tabular-nums;
 }
 .row-size input[type="range"] {
   width: 100%;

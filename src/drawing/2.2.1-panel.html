@@ -22,10 +22,16 @@
   <button type="button" class="tool" data-tool="square" title="Квадрат">▢</button>
 </div>
 <div id="vgf-brush-size-wrap" class="row-size">
-  <label title="Толщина кисти, стрелки и квадрата">Размер кисти <input type="range" id="vgf-brush-size" min="2" max="72" value="16" /></label>
+  <label title="Толщина кисти, стрелки и квадрата">
+    <span class="size-label-row">Размер кисти <span class="size-value" id="vgf-brush-size-val">5</span></span>
+    <input type="range" id="vgf-brush-size" min="2" max="72" value="5" />
+  </label>
 </div>
 <div id="vgf-eraser-size-wrap" class="row-size" hidden>
-  <label title="Толщина ластика">Размер ластика <input type="range" id="vgf-eraser-size" min="2" max="96" value="24" /></label>
+  <label title="Толщина ластика">
+    <span class="size-label-row">Размер ластика <span class="size-value" id="vgf-eraser-size-val">24</span></span>
+    <input type="range" id="vgf-eraser-size" min="2" max="96" value="24" />
+  </label>
 </div>
 <div class="color-row">
   <div class="dual-color">
