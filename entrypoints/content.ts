@@ -1,4 +1,4 @@
-import { mountDrawingOverlay } from "../src/drawing/overlay";
+import { mountDrawingOverlay } from "../src/drawing/1-overlay";
 
 export default defineContentScript({
   matches: [

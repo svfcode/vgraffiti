@@ -216,7 +216,7 @@ PNG соответствует **полному viewport** в момент со�
 
 | Компонент | Путь |
 |-----------|------|
-| Overlay, режимы, отрисовка | `vgraffiti/src/drawing/drawing-overlay.ts` |
+| Overlay, режимы, отрисовка | `vgraffiti/src/drawing/2-drawing-overlay.ts` |
 | Проекция lat/lng → экран | `vgraffiti/src/lib/map-projection.ts` |
 | Контекст карты из URL | `vgraffiti/src/lib/map-context.ts` |
 | Page bridge (pan, ymaps) | `vgraffiti/src/lib/map-live-probe.ts`, `entrypoints/map-bridge.content.ts` |
