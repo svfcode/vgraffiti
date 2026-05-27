@@ -14,10 +14,6 @@ canvas.layer {
   touch-action: none;
   cursor: crosshair;
 }
-canvas.layer.mode-nav {
-  pointer-events: none !important;
-  cursor: default;
-}
 canvas.layer.vgf-hide-cursor {
   cursor: none;
 }
@@ -77,32 +73,11 @@ canvas.layer.vgf-hide-cursor {
 .drag-handle:active {
   cursor: grabbing;
 }
-.mode-row {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  justify-content: center;
-}
-.mode-btn {
-  flex: 1;
-  padding: 5px 6px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  background: rgba(0, 0, 0, 0.2);
-  color: #e8eaed;
-  font-size: 11px;
-  font-weight: 600;
-}
-.mode-btn.on {
-  background: #8ab4f8;
-  color: #202124;
-  border-color: transparent;
-}
-details.more {
+.more {
+  margin-left: auto;
   position: relative;
 }
-details.more > summary {
+.more-btn {
   list-style: none;
   cursor: pointer;
   font-size: 18px;
@@ -111,10 +86,10 @@ details.more > summary {
   color: #9aa0a6;
   border-radius: 6px;
 }
-details.more > summary::-webkit-details-marker {
+.more-btn::-webkit-details-marker {
   display: none;
 }
-details.more > summary:hover {
+.more-btn:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #e8eaed;
 }
@@ -129,7 +104,7 @@ details.more > summary:hover {
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
   z-index: 2;
-  min-width: 120px;
+  min-width: 130px;
 }
 .more-panel button {
   width: 100%;
@@ -211,21 +186,6 @@ details.more > summary:hover {
 .hist-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-.hist-save svg {
-  display: block;
-  margin: 0 auto;
-  pointer-events: none;
-}
-.save-feedback {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.35;
-  color: #81c995;
-  min-height: 0;
-}
-.save-feedback.err {
-  color: #f28b82;
 }
 .row-size label {
   display: flex;
