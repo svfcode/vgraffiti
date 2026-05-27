@@ -1,5 +1,6 @@
 import { clearSession, getApiBaseUrl, getSession, setApiBaseUrl, setSession } from "../src/lib/storage";
 import { normalizeApiBaseUrl, originFromApiBase } from "../src/lib/url";
+import type { MapContext } from "../src/lib/map-context";
 
 type Ok<T> = { ok: true; data: T };
 type Err = { ok: false; error: string; status?: number; body?: string };
@@ -11,7 +12,9 @@ type BgMessage =
   | { type: "api.authEmail"; email: string }
   | { type: "api.authVerify"; email: string; code: string }
   | { type: "api.logout" }
-  | { type: "api.uploadDrawing"; buffer: ArrayBuffer; mimeType: string; meta: Record<string, unknown> };
+  | { type: "api.uploadDrawing"; imageBase64: string; mimeType: string; meta: Record<string, unknown>; map?: MapContext | null }
+  | { type: "api.listDrawingsNearMap"; lat: number; lng: number; mapProvider: string; radius: number; zoom: number | null }
+  | { type: "api.fetchImageDataUrl"; url: string };
 
 async function parseJsonSafe(text: string): Promise<unknown> {
   try {
@@ -185,6 +188,14 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
       if (typeof access_token !== "string") {
         return { ok: false, error: "Неверный ответ сервера: нет access_token" };
       }
+      let profileDrawingsUrl: string | null = null;
+      const userObj = o.user;
+      if (userObj && typeof userObj === "object") {
+        const u = userObj as Record<string, unknown>;
+        if (typeof u.profile_drawings_url === "string" && u.profile_drawings_url.length > 0) {
+          profileDrawingsUrl = u.profile_drawings_url;
+        }
+      }
       await setSession({
         accessToken: access_token,
         expiresAt:
@@ -192,6 +203,7 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
             ? (expires_at as string | null)
             : null,
         email: msg.email,
+        profileDrawingsUrl,
       });
       return { ok: true, data: { ok: true } };
     }
@@ -215,47 +227,105 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
       if (!perm.data) {
         return { ok: false, error: NEED_API_HOST_HINT };
       }
-      const { accessToken } = await getSession();
-      if (!accessToken) {
-        return { ok: false, error: "Нет сессии: войдите по почте" };
-      }
-      const base = await getApiBaseUrl();
-      if (!base) {
-        return { ok: false, error: "Сервер не настроен" };
-      }
-      const url = `${base}/drawings`;
-      const blob = new Blob([msg.buffer], { type: msg.mimeType || "image/png" });
-      const form = new FormData();
-      form.append("file", blob, "drawing.png");
-      form.append("meta", JSON.stringify(msg.meta ?? {}));
-      form.append("title", "");
-      form.append("description", "");
-      const headers: Record<string, string> = {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-        "Idempotency-Key": crypto.randomUUID(),
+      const body: Record<string, unknown> = {
+        image_base64: msg.imageBase64,
+        mime_type: msg.mimeType || "image/png",
+        meta: msg.meta ?? {},
+        title: "",
+        description: "",
       };
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          method: "POST",
-          headers,
-          body: form,
-        });
-      } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      if (msg.map) {
+        body.lat = msg.map.lat;
+        body.lng = msg.map.lng;
+        body.map_provider = msg.map.provider;
+        if (msg.map.zoom != null) {
+          body.zoom = msg.map.zoom;
+        }
       }
-      const text = await res.text();
-      const json = text.length ? await parseJsonSafe(text) : null;
-      if (res.status >= 400) {
+      const r = await apiRequest({
+        path: "/drawings",
+        method: "POST",
+        auth: "bearer",
+        idempotencyKey: crypto.randomUUID(),
+        body,
+      });
+      if (!r.ok) {
+        return r;
+      }
+      const { status, json, text } = r.data;
+      if (status >= 400) {
         return {
           ok: false,
-          status: res.status,
+          status,
           body: text,
-          error: `HTTP ${res.status}`,
+          error: `HTTP ${status}`,
         };
       }
       return { ok: true, data: json };
+    }
+    case "api.listDrawingsNearMap": {
+      const perm = await hasApiOriginPermission();
+      if (!perm.ok) {
+        return perm;
+      }
+      if (!perm.data) {
+        return { ok: false, error: NEED_API_HOST_HINT };
+      }
+      const qs = new URLSearchParams({
+        lat: String(msg.lat),
+        lng: String(msg.lng),
+        map_provider: msg.mapProvider,
+        near: "1",
+        radius: String(msg.radius),
+      });
+      if (msg.zoom != null) {
+        qs.set("zoom", String(msg.zoom));
+      }
+      const r = await apiRequest({
+        path: `/drawings?${qs.toString()}`,
+        method: "GET",
+        auth: "bearer",
+      });
+      if (!r.ok) {
+        return r;
+      }
+      const { status, json, text } = r.data;
+      if (status >= 400) {
+        return {
+          ok: false,
+          status,
+          body: text,
+          error: `HTTP ${status}`,
+        };
+      }
+      return { ok: true, data: json };
+    }
+    case "api.fetchImageDataUrl": {
+      const perm = await hasApiOriginPermission();
+      if (!perm.ok) {
+        return perm;
+      }
+      if (!perm.data) {
+        return { ok: false, error: NEED_API_HOST_HINT };
+      }
+      let res: Response;
+      try {
+        res = await fetch(msg.url);
+      } catch (e) {
+        return { ok: false, error: e instanceof Error ? e.message : String(e) };
+      }
+      if (!res.ok) {
+        return { ok: false, error: `HTTP ${res.status}` };
+      }
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]!);
+      }
+      const mime = res.headers.get("content-type")?.split(";")[0]?.trim() || "image/png";
+      const dataUrl = `data:${mime};base64,${btoa(binary)}`;
+      return { ok: true, data: dataUrl };
     }
     default:
       return { ok: false, error: "Неизвестный тип сообщения" };

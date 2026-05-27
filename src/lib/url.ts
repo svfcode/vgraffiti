@@ -33,3 +33,21 @@ export function originFromApiBase(apiBaseUrl: string): string {
 export function wpAdminProfileUrlFromApiBase(apiBaseUrl: string): string {
   return `${originFromApiBase(apiBaseUrl)}/wp-admin/profile.php`;
 }
+
+/** Content script на HTTPS-странице не может fetch к HTTP API (mixed content). */
+export function isHttpApiUrl(apiBaseUrl: string): boolean {
+  try {
+    return new URL(apiBaseUrl).protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
+export function isHttpsPage(): boolean {
+  return typeof location !== "undefined" && location.protocol === "https:";
+}
+
+/** На yandex.ru/maps и других HTTPS-картах запрос к http:// API только через service worker. */
+export function mustUploadViaBackground(apiBaseUrl: string): boolean {
+  return isHttpsPage() && isHttpApiUrl(apiBaseUrl);
+}

@@ -1,4 +1,4 @@
-import { mountDrawingOverlay } from "../src/drawing/overlay";
+import { ensureMapBridgeInstalled } from "../src/lib/map-live-probe";
 
 export default defineContentScript({
   matches: [
@@ -11,8 +11,9 @@ export default defineContentScript({
     "*://yandex.kz/maps/*",
     "*://maps.yandex.ru/*",
   ],
-  runAt: "document_idle",
+  world: "MAIN",
+  runAt: "document_start",
   main() {
-    mountDrawingOverlay();
+    ensureMapBridgeInstalled();
   },
 });

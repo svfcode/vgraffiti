@@ -200,9 +200,11 @@ async function refreshPanels(): Promise<void> {
     authedSummary.textContent = `Вошли как ${s.email ?? "?"}. Сервер: ${base ?? "—"}.`;
     const profileLink = document.getElementById("profileSiteLink") as HTMLAnchorElement;
     const profileRow = profileLink.closest(".authed-profile-row") as HTMLElement;
-    if (base) {
+    const profileUrl =
+      s.profileDrawingsUrl ?? (base ? wpAdminProfileUrlFromApiBase(base) : null);
+    if (profileUrl) {
       profileRow.hidden = false;
-      profileLink.href = wpAdminProfileUrlFromApiBase(base);
+      profileLink.href = profileUrl;
     } else {
       profileRow.hidden = true;
       profileLink.removeAttribute("href");
