@@ -6,6 +6,7 @@ import { bindShortcutEvents } from "./2.6.4-handle-shortcut";
 import {
   bindToolPanelEvents,
   syncDualColor,
+  syncModeButtons,
   syncPickUi,
   syncSizeRows,
   syncSwatches,
@@ -56,6 +57,7 @@ export function initPanel(host: DrawingOverlayHost): void {
   bindCanvasEvents(host);
 
   syncToolButtons(host);
+  syncModeButtons(host);
   syncSizeRows(host);
   syncDualColor(host);
   syncPickUi(host);

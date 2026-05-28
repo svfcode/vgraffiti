@@ -14,7 +14,10 @@ export function getEraserSize(host: DrawingOverlayHost): number {
 }
 
 export function wantsSizeCursor(host: DrawingOverlayHost): boolean {
-  return host.activeTool === "brush" || host.activeTool === "eraser";
+  return (
+    host.uiMode === "draw" &&
+    (host.activeTool === "brush" || host.activeTool === "eraser")
+  );
 }
 
 export function getActiveToolSize(host: DrawingOverlayHost): number {
@@ -95,7 +98,9 @@ export function syncModeButtons(host: DrawingOverlayHost): void {
   });
   host.canvas.classList.toggle("mode-nav", host.uiMode === "nav");
   syncCanvasPointerCursor(host);
-  if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
+  if (host.uiMode === "nav") {
+    hideSizeCursor(host);
+  } else if (wantsSizeCursor(host) && host.canvas.matches(":hover")) {
     showSizeCursorAt(host, host.lastHoverClient.x, host.lastHoverClient.y);
   } else if (!wantsSizeCursor(host)) {
     hideSizeCursor(host);

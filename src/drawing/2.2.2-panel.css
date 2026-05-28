@@ -15,6 +15,10 @@ canvas.layer {
   touch-action: none;
   cursor: crosshair;
 }
+canvas.layer.mode-nav {
+  pointer-events: none;
+  cursor: default;
+}
 canvas.layer.vgf-hide-cursor {
   cursor: none;
 }
@@ -191,6 +195,30 @@ canvas.layer.vgf-hide-cursor {
 .hist-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+.mode-row {
+  display: flex;
+  gap: 4px;
+}
+.mode-btn {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.18);
+  color: #e8eaed;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.mode-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.mode-btn.on {
+  background: rgba(138, 180, 248, 0.35);
+  border-color: #8ab4f8;
+  color: #fff;
 }
 .row-size label {
   display: flex;

@@ -51,7 +51,7 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 }
 
 function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
-  if (ev.button !== 0) {
+  if (host.uiMode !== "draw" || ev.button !== 0) {
     return;
   }
   ev.preventDefault();
