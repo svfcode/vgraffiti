@@ -1,7 +1,7 @@
 import { readMapContext } from "../lib/map-context";
 import { createShadowDom } from "./2.2-create-shadow-dom";
-import { createCanvas } from "./2.5-create-canvas";
-import { initPanel, queryPanelElements } from "./2.6-init-panel";
+import { createCanvas } from "./canvas/2.5-create-canvas";
+import { initPanel, queryPanelElements } from "./panel/2.6-init-panel";
 import {
   cancelActiveStroke,
   finishStroke,
@@ -10,11 +10,11 @@ import {
   performUndo,
   pushHistoryBeforeMutation,
   syncUndoRedoButtons,
-} from "./2.6.1-handle-history";
+} from "./handlers/2.6.1-handle-history";
 import {
   applyBarPosition,
   applyPanelOpacity,
-} from "./2.6.3-handle-panel-move";
+} from "./handlers/2.6.3-handle-panel-move";
 import { scheduleRedraw } from "./2.11-rerender";
 import {
   cycleToolForward,
@@ -30,7 +30,7 @@ import {
   syncSwatches,
   syncToolButtons,
   wantsSizeCursor,
-} from "./2.6.2-handle-tools";
+} from "./handlers/2.6.2-handle-tools";
 import type {
   CurrentGesture,
   DrawingOverlayHost,

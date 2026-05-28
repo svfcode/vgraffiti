@@ -1,8 +1,8 @@
-import { SWATCHES, type DrawingOverlayHost, type PanelElements } from "./2.1-overlay-types";
-import { bindCanvasEvents, resizeCanvas } from "./2.5-create-canvas";
-import { bindHistoryPanelEvents } from "./2.6.1-handle-history";
-import { bindPanelMoveEvents } from "./2.6.3-handle-panel-move";
-import { bindShortcutEvents } from "./2.6.4-handle-shortcut";
+import { SWATCHES, type DrawingOverlayHost, type PanelElements } from "../2.1-overlay-types";
+import { bindCanvasEvents, resizeCanvas } from "../canvas/2.5-create-canvas";
+import { bindHistoryPanelEvents } from "../handlers/2.6.1-handle-history";
+import { bindPanelMoveEvents } from "../handlers/2.6.3-handle-panel-move";
+import { bindShortcutEvents } from "../handlers/2.6.4-handle-shortcut";
 import {
   bindToolPanelEvents,
   syncDualColor,
@@ -11,9 +11,9 @@ import {
   syncSizeRows,
   syncSwatches,
   syncToolButtons,
-} from "./2.6.2-handle-tools";
-import { syncUndoRedoButtons } from "./2.6.1-handle-history";
-import { applyBarPosition, applyPanelOpacity } from "./2.6.3-handle-panel-move";
+} from "../handlers/2.6.2-handle-tools";
+import { syncUndoRedoButtons } from "../handlers/2.6.1-handle-history";
+import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-panel-move";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {

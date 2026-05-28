@@ -1,5 +1,5 @@
-import { coalescedOrSelf, pointFromEvent } from "./lib/stroke";
-import { xyCanvas, type DrawingOverlayHost } from "./2.1-overlay-types";
+import { coalescedOrSelf, pointFromEvent } from "../inc/stroke";
+import { xyCanvas, type DrawingOverlayHost } from "../2.1-overlay-types";
 
 export type CanvasElements = {
   canvas: HTMLCanvasElement;

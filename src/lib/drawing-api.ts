@@ -7,7 +7,8 @@
 import type { MapContext } from "./map-context";
 import type { BgResult } from "./extension-api";
 import { bgUploadDrawing } from "./extension-api";
-import { getApiBaseUrl, getSession } from "./storage";
+import { getApiBaseUrl } from "./storage";
+import { getSession } from "../auth/session";
 import { mustUploadViaBackground, originFromApiBase } from "./url";
 
 export type DrawingUploadPayload = {

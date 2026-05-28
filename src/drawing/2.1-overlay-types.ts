@@ -1,4 +1,4 @@
-import type { StrokePoint } from "./lib/stroke";
+import type { StrokePoint } from "./inc/stroke";
 
 export const Z_OVERLAY = 2147483000;
 

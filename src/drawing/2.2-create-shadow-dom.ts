@@ -1,5 +1,5 @@
-import panelCss from "./2.2.2-panel.css?raw";
-import panelMarkup from "./2.2.1-panel.html?raw";
+import panelCss from "./panel/2.2.2-panel.css?raw";
+import panelMarkup from "./panel/2.2.1-panel.html?raw";
 import { Z_OVERLAY } from "./2.1-overlay-types";
 
 export type ShadowDomElements = {

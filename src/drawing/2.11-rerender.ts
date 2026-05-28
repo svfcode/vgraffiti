@@ -1,5 +1,5 @@
-import { drawArrow, drawSquareStroke } from "./lib/shapes";
-import { renderEraserStroke, renderStroke } from "./lib/stroke";
+import { drawArrow, drawSquareStroke } from "./inc/shapes";
+import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import type { DrawingOverlayHost } from "./2.1-overlay-types";
 
 export function scheduleRedraw(host: DrawingOverlayHost): void {

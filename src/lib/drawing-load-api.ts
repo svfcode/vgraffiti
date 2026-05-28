@@ -6,7 +6,8 @@ import type { BgResult } from "./extension-api";
 import { bgFetchImageDataUrl, bgListDrawingsNearMap } from "./extension-api";
 import type { MapContext } from "./map-context";
 import { searchRadiusDeg } from "./map-projection";
-import { getApiBaseUrl, getSession } from "./storage";
+import { getApiBaseUrl } from "./storage";
+import { getSession } from "../auth/session";
 import { isHttpsPage, mustUploadViaBackground } from "./url";
 
 export type RemoteDrawing = {

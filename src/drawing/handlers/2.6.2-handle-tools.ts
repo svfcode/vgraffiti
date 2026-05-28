@@ -3,7 +3,7 @@ import {
   type DrawingOverlayHost,
   type ToolId,
   type UiMode,
-} from "./2.1-overlay-types";
+} from "../2.1-overlay-types";
 
 export function getBrushSize(host: DrawingOverlayHost): number {
   return Number(host.brushSizeEl.value) || 5;

@@ -1,4 +1,4 @@
-import { isEditableKeyTarget, type DrawingOverlayHost } from "./2.1-overlay-types";
+import { isEditableKeyTarget, type DrawingOverlayHost } from "../2.1-overlay-types";
 
 export function bindShortcutEvents(host: DrawingOverlayHost): void {
   window.addEventListener("keydown", (e) => onWindowKeyDown(host, e), true);

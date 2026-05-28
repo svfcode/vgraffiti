@@ -1,4 +1,4 @@
-import type { DrawingOverlayHost } from "./2.1-overlay-types";
+import type { DrawingOverlayHost } from "../2.1-overlay-types";
 
 export function applyPanelOpacity(host: DrawingOverlayHost): void {
   const pct = Math.min(100, Math.max(25, Number(host.panelOpacityEl.value) || 100));

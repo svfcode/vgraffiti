@@ -1,4 +1,4 @@
-import { cloneStrokes, type DrawingOverlayHost } from "./2.1-overlay-types";
+import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 
 export function pushHistoryBeforeMutation(host: DrawingOverlayHost): void {
   host.past.push(cloneStrokes(host.strokes));
