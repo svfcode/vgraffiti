@@ -1,4 +1,10 @@
 import { SWATCHES, type DrawingOverlayHost, type PanelElements } from "../2.1-overlay-types";
+import {
+  bindJourneyPanelEvents,
+  initActiveJourney,
+  initJourneyStorage,
+  syncJourneyPanel,
+} from "../handlers/2.6.5-handle-journeys";
 import { bindCanvasEvents, resizeCanvas } from "../canvas/2.5-create-canvas";
 import { bindHistoryPanelEvents } from "../handlers/2.6.1-handle-history";
 import { bindPanelMoveEvents } from "../handlers/2.6.3-handle-panel-move";
@@ -17,6 +23,10 @@ import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-pa
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
+    journeyWrap: bar.querySelector<HTMLDivElement>("#vgf-journey-wrap")!,
+    journeyNameEl: bar.querySelector<HTMLInputElement>("#vgf-journey-name")!,
+    journeySaveBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-save")!,
+    journeyListEl: bar.querySelector<HTMLDivElement>("#vgf-journey-list")!,
     swatchHost: bar.querySelector<HTMLDivElement>("#vgf-swatches")!,
     swatchesWrap: bar.querySelector<HTMLDivElement>("#vgf-swatches-wrap")!,
     pickHintEl: bar.querySelector<HTMLParagraphElement>("#vgf-pick-hint")!,
@@ -48,13 +58,18 @@ export function initSwatches(host: DrawingOverlayHost): void {
   }
 }
 
-export function initPanel(host: DrawingOverlayHost): void {
+export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   initSwatches(host);
   bindHistoryPanelEvents(host);
   bindToolPanelEvents(host);
   bindPanelMoveEvents(host);
   bindShortcutEvents(host);
   bindCanvasEvents(host);
+
+  bindJourneyPanelEvents(host);
+  initActiveJourney(host);
+  await initJourneyStorage(host);
+  syncJourneyPanel(host);
 
   syncToolButtons(host);
   syncModeButtons(host);

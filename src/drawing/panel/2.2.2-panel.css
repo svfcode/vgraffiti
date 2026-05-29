@@ -60,7 +60,7 @@ canvas.layer.vgf-hide-cursor {
   font-size: 12px;
   pointer-events: auto;
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
-  max-width: 220px;
+  max-width: 240px;
   user-select: none;
 }
 .bar-head {
@@ -219,6 +219,98 @@ canvas.layer.vgf-hide-cursor {
   background: rgba(138, 180, 248, 0.35);
   border-color: #8ab4f8;
   color: #fff;
+}
+.journey-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.journey-row[hidden] {
+  display: none !important;
+}
+.journey-saved-label {
+  margin: 2px 0 0;
+  font-size: 10px;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.journey-label {
+  font-size: 10px;
+  color: #9aa0a6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.journey-name {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e8eaed;
+  font-size: 12px;
+  font-family: inherit;
+}
+.journey-name:focus {
+  outline: none;
+  border-color: #8ab4f8;
+}
+.journey-save-btn {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(138, 180, 248, 0.5);
+  cursor: pointer;
+  background: rgba(138, 180, 248, 0.2);
+  color: #e8eaed;
+  font-weight: 600;
+  font-size: 12px;
+}
+.journey-save-btn:hover:not(:disabled) {
+  background: rgba(138, 180, 248, 0.32);
+}
+.journey-save-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+.journey-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 52px;
+  max-height: 120px;
+  overflow-y: auto;
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.2);
+}
+.journey-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #e8eaed;
+}
+.journey-item input {
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.journey-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journey-empty {
+  margin: 0;
+  font-size: 11px;
+  color: #9aa0a6;
+  font-style: italic;
 }
 .row-size label {
   display: flex;

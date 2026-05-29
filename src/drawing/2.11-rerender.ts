@@ -3,6 +3,7 @@ import { projectStoredStroke } from "./inc/geo-stroke";
 import { getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
+import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
 import type { DrawingOverlayHost } from "./2.1-overlay-types";
 
 export function scheduleRedraw(host: DrawingOverlayHost): void {
@@ -21,7 +22,7 @@ export function redraw(host: DrawingOverlayHost): void {
   const map = getViewportMap(host);
   const frame = getMapViewportFrame();
   if (map && !host.mapNativeRender) {
-    for (const s of host.strokes) {
+    for (const s of getDisplayStrokes(host)) {
       const projected = projectStoredStroke(s, map, frame);
       if (projected.kind === "brush") {
         renderStroke(c, projected.points, { color: projected.color, size: projected.size });

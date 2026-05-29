@@ -1,5 +1,6 @@
 import type { StrokePoint } from "./inc/stroke";
 import type { MapContext } from "../lib/map-context";
+import type { SavedJourney } from "./inc/journey-storage";
 
 export const Z_OVERLAY = 2147483000;
 
@@ -92,6 +93,10 @@ export function isEditableKeyTarget(target: EventTarget | null): boolean {
 }
 
 export type PanelElements = {
+  journeyWrap: HTMLDivElement;
+  journeyNameEl: HTMLInputElement;
+  journeySaveBtn: HTMLButtonElement;
+  journeyListEl: HTMLDivElement;
   swatchHost: HTMLDivElement;
   swatchesWrap: HTMLDivElement;
   pickHintEl: HTMLParagraphElement;
@@ -119,8 +124,18 @@ export type ZoomVisual = {
   pivotY: number;
 };
 
+export type ActiveJourney = {
+  id: string;
+  name: string;
+  createdAt: number;
+};
+
 export interface DrawingOverlayHost extends PanelElements {
   readonly root: HTMLDivElement;
+
+  activeJourney: ActiveJourney | null;
+  savedJourneys: SavedJourney[];
+  selectedJourneyIds: Set<string>;
   readonly canvas: HTMLCanvasElement;
   readonly sizeCursorEl: HTMLDivElement;
   readonly bar: HTMLDivElement;

@@ -8,6 +8,7 @@ import {
   pickViewportMapContext,
 } from "../../lib/map-live-probe";
 import type { GeoStrokePayload } from "../../lib/map-bridge-protocol";
+import { getDisplayStrokes, syncJourneyPanel } from "../handlers/2.6.5-handle-journeys";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 
 /** Время последнего live-обновления от page-bridge (ymaps). */
@@ -41,6 +42,7 @@ export function syncMapFollow(host: DrawingOverlayHost): void {
 export function installMapBinding(host: DrawingOverlayHost): () => void {
   ensureMapBridgeInstalled();
   host.mapContext = pickViewportMapContext(readMapContext());
+  syncJourneyPanel(host);
   syncMapFollow(host);
 
   const unbind = installLiveMapProbe(
@@ -148,7 +150,7 @@ export function captureZoom(host: DrawingOverlayHost): number {
 /** Сериализует завершённые штрихи в гео-объекты для нативного слоя ymaps. */
 export function syncStrokesToBridge(host: DrawingOverlayHost): void {
   const payload: GeoStrokePayload[] = [];
-  for (const s of host.strokes) {
+  for (const s of getDisplayStrokes(host)) {
     if (s.kind === "brush") {
       payload.push({
         kind: "brush",

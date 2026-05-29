@@ -37,7 +37,9 @@ import {
   syncToolButtons,
   wantsSizeCursor,
 } from "./handlers/2.6.2-handle-tools";
+import type { SavedJourney } from "./inc/journey-storage";
 import type {
+  ActiveJourney,
   CurrentGesture,
   DrawingOverlayHost,
   PanVisual,
@@ -54,7 +56,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
     }
     try {
       const app = new DrawingOverlay();
-      app.init();
+      void app.init();
     } catch {
       /* canvas 2d недоступен */
     }
@@ -82,7 +84,14 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly dragHandle: HTMLSpanElement;
   readonly undoBtn: HTMLButtonElement;
   readonly redoBtn: HTMLButtonElement;
+  readonly journeyWrap: HTMLDivElement;
+  readonly journeyNameEl: HTMLInputElement;
+  readonly journeySaveBtn: HTMLButtonElement;
+  readonly journeyListEl: HTMLDivElement;
 
+  activeJourney: ActiveJourney | null = null;
+  savedJourneys: SavedJourney[] = [];
+  selectedJourneyIds = new Set<string>();
   activeTool: ToolId = "brush";
   uiMode: UiMode = readMapContext() ? "nav" : "draw";
   fgColor = "#000000";
@@ -136,12 +145,16 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.dragHandle = panel.dragHandle;
     this.undoBtn = panel.undoBtn;
     this.redoBtn = panel.redoBtn;
+    this.journeyWrap = panel.journeyWrap;
+    this.journeyNameEl = panel.journeyNameEl;
+    this.journeySaveBtn = panel.journeySaveBtn;
+    this.journeyListEl = panel.journeyListEl;
 
     document.documentElement.appendChild(host);
   }
 
-  private init(): void {
-    initPanel(this);
+  private async init(): Promise<void> {
+    await initPanel(this);
     installMapBinding(this);
   }
 
