@@ -107,13 +107,31 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 | `strokes: StoredStroke[]` | `DrawingOverlay` | Завершённые штрихи (история рисунка) |
 | `current: CurrentGesture \| null` | `DrawingOverlay` | Незавершённый жест (палец/мышь ещё на canvas) |
 | `past / future` | `DrawingOverlay` | Стеки undo/redo (снимки `strokes`) |
+| `mapContext` / `panVisual` | `DrawingOverlay` | Центр карты и сдвиг при pan (режим «Нав») |
+
+### Геопривязка (вектор lat/lng)
+
+Завершённые штрихи хранятся **в географических координатах**, а не в экранных пикселях:
+
+| Тип | Хранение | Поле `zoom` |
+|-----|----------|-------------|
+| `brush` / `eraser` | `points: GeoPoint[]` — `[lat, lng, pressure]` | zoom при рисовании (масштаб толщины) |
+| `arrow` / `square` | `lat0, lng0, lat1, lng1` | то же |
+
+**Во время жеста** (`current`) координаты остаются в CSS-пикселях — карта в режиме «Рис» не двигается. При `finishStroke()` точки конвертируются в geo через `screenToMapGeo()` (`src/lib/map-projection.ts`).
+
+**При отрисовке** каждый штрих проецируется обратно на экран через `projectStoredStroke()` (`inc/geo-stroke.ts`) с учётом текущего центра карты. Толщина масштабируется: `size × 2^(z_now − z_capture)`.
+
+Контекст viewport для проекции — `getViewportMap()` (`inc/map-binding.ts`): live-центр из `map-live-probe` + смещение `panVisual` во время перетаскивания карты.
+
+**Точный (дробный) zoom.** Web Mercator завязан на масштаб `256 · 2^zoom`. Карты зумируют дробно (12.3, 9.7), поэтому zoom **не округляется** ни в `map-live-probe`, ни в `map-context` — иначе штрих «съезжал» бы и масштабировался неверно при изменении масштаба. При изменении центра/zoom (`mapContextMoved`) overlay перерисовывается; в режиме «Нав» центр дополнительно опрашивается ~раз в 66 мс, так что рисунок «прилипает» к объектам карты при зуме.
 
 Виды штрихов (`StoredStroke`):
-- `brush` — точки + цвет + размер;
-- `eraser` — точки + размер (вычитание альфы);
-- `arrow` / `square` — два угла + цвет + толщина линии.
+- `brush` — geo-точки + цвет + размер + zoom;
+- `eraser` — geo-точки + размер + zoom;
+- `arrow` / `square` — два geo-угла + цвет + толщина + zoom.
 
-Координаты точек кисти — `[x, y, pressure]` в CSS-пикселях относительно canvas (`inc/stroke.ts`, `pointFromEvent`).
+Координаты **активного** жеста — `[x, y, pressure]` в CSS-пикселях (`inc/stroke.ts`, `pointFromEvent`).
 
 ---
 
@@ -151,7 +169,8 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 Реализация — `handlers/2.6.1-handle-history.ts`:
 
 - Снимает capture и флаг `isDrawing`.
-- Если жест валиден (достаточно точек / длины) — `pushHistoryBeforeMutation()` и добавление в `strokes`.
+- Если жест валиден — конвертирует screen → geo, `pushHistoryBeforeMutation()`, добавление в `strokes` с полем `zoom`.
+- Без контекста карты (`getViewportMap() === null`) штрих не сохраняется.
 - `current = null`, `scheduleRedraw()`, обновление undo/redo.
 
 ---
@@ -164,9 +183,12 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 scheduleRedraw(host)
   └── requestAnimationFrame → redraw(host)
         ├── clearRect(весь viewport)
-        ├── для каждого s in host.strokes → renderStroke / renderEraserStroke / drawArrow / drawSquareStroke
-        └── если host.current → preview текущего жеста (фигуры — полупрозрачные, пунктир)
+        ├── getViewportMap() → текущий центр + pan
+        ├── для каждого s in host.strokes → projectStoredStroke → renderStroke / …
+        └── если host.current → preview в screen-space (режим «Рис»)
 ```
+
+Перерисовка также вызывается при **движении карты** (pan/zoom в режиме «Нав»): `installMapBinding()` подписывается на `map-live-probe`.
 
 `scheduleRedraw` отменяет предыдущий rAF (`host.raf`) — не более одного кадра на серию событий.
 
@@ -184,8 +206,8 @@ scheduleRedraw(host)
 
 | Режим | Canvas | Рисование |
 |-------|--------|-----------|
-| **nav** | `pointer-events: none` | `onCanvasPointerDown` сразу выходит |
-| **draw** | события на canvas | полный цикл pointer → stroke |
+| **nav** | `pointer-events: none` | штрихи следуют за картой (geo-проекция); pan через `map-live-probe` |
+| **draw** | события на canvas | жест в screen-space; при завершении → geo |
 
 По умолчанию на картах — **nav** (`readMapContext()` в конструкторе `2-drawing-overlay.ts`), на обычных страницах — **draw**.
 
@@ -222,6 +244,8 @@ scheduleRedraw(host)
 | `2.11-rerender.ts` | `scheduleRedraw`, `redraw` |
 | `2.1-overlay-types.ts` | `StoredStroke`, `CurrentGesture`, `DrawingOverlayHost`, `xyCanvas` |
 | `inc/stroke.ts` | Точки из pointer, рендер кисти/ластика |
+| `inc/geo-stroke.ts` | screen ↔ geo, `projectStoredStroke` |
+| `inc/map-binding.ts` | `installMapBinding`, `getViewportMap`, `syncMapFollow` |
 | `inc/shapes.ts` | Стрелка, прямоугольник |
 | `handlers/2.6.1-handle-history.ts` | Завершение штриха, undo/redo, clear |
 | `handlers/2.6.2-handle-tools.ts` | Режим nav/draw, кружок размера, инструменты |

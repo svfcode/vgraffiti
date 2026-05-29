@@ -1,4 +1,7 @@
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
+import { screenPointsToGeo } from "../inc/geo-stroke";
+import { captureZoom, getViewportMap } from "../inc/map-binding";
+import { screenToMapGeo } from "../../lib/map-projection";
 
 export function pushHistoryBeforeMutation(host: DrawingOverlayHost): void {
   host.past.push(cloneStrokes(host.strokes));
@@ -68,47 +71,72 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   host.activePointerId = null;
 
   const cur = host.current;
+  const map = getViewportMap(host);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const zoom = captureZoom(host);
+
+  if (!map) {
+    host.current = null;
+    try {
+      host.canvas.releasePointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    host.scheduleRedraw();
+    syncUndoRedoButtons(host);
+    return;
+  }
+
   if (cur.tool === "brush" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
     host.strokes.push({
       kind: "brush",
-      points: cur.points,
+      points: screenPointsToGeo(cur.points, map, w, h),
       color: host.fgColor,
       size: host.getBrushSize(),
+      zoom,
     });
   } else if (cur.tool === "eraser" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
     host.strokes.push({
       kind: "eraser",
-      points: cur.points,
+      points: screenPointsToGeo(cur.points, map, w, h),
       size: host.getEraserSize(),
+      zoom,
     });
   } else if (cur.tool === "arrow") {
     const { x0, y0, x1, y1 } = cur;
     if (Math.hypot(x1 - x0, y1 - y0) >= 4) {
       pushHistoryBeforeMutation(host);
+      const p0 = screenToMapGeo(x0, y0, w, h, map);
+      const p1 = screenToMapGeo(x1, y1, w, h, map);
       host.strokes.push({
         kind: "arrow",
-        x0,
-        y0,
-        x1,
-        y1,
+        lat0: p0.lat,
+        lng0: p0.lng,
+        lat1: p1.lat,
+        lng1: p1.lng,
         color: host.fgColor,
         lw: host.getBrushSize(),
+        zoom,
       });
     }
   } else if (cur.tool === "square") {
     const { x0, y0, x1, y1 } = cur;
     if (Math.abs(x1 - x0) >= 3 || Math.abs(y1 - y0) >= 3) {
       pushHistoryBeforeMutation(host);
+      const p0 = screenToMapGeo(x0, y0, w, h, map);
+      const p1 = screenToMapGeo(x1, y1, w, h, map);
       host.strokes.push({
         kind: "square",
-        x0,
-        y0,
-        x1,
-        y1,
+        lat0: p0.lat,
+        lng0: p0.lng,
+        lat1: p1.lat,
+        lng1: p1.lng,
         color: host.fgColor,
         lw: host.getBrushSize(),
+        zoom,
       });
     }
   }

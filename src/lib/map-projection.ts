@@ -9,6 +9,52 @@ export function mercatorPixel(lat: number, lng: number, zoom: number): { x: numb
   return { x, y };
 }
 
+/** Обратная проекция Web Mercator → lat/lng. */
+export function mercatorToLatLng(x: number, y: number, zoom: number): { lat: number; lng: number } {
+  const scale = 256 * 2 ** zoom;
+  const lng = (x / scale) * 360 - 180;
+  const lat = (180 / Math.PI) * Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / scale)));
+  return { lat, lng };
+}
+
+export function mapZoom(map: MapContext, fallback = 16): number {
+  const z = map.zoom;
+  return z != null && z > 0 ? z : fallback;
+}
+
+/** Точка экрана (CSS px) → географические координаты. */
+export function screenToMapGeo(
+  sx: number,
+  sy: number,
+  viewW: number,
+  viewH: number,
+  map: MapContext,
+): { lat: number; lng: number } {
+  const z = mapZoom(map);
+  const center = mercatorPixel(map.lat, map.lng, z);
+  const dx = sx - viewW / 2;
+  const dy = sy - viewH / 2;
+  return mercatorToLatLng(center.x + dx, center.y + dy, z);
+}
+
+/** lat/lng → точка на canvas (CSS px относительно viewport). */
+export function mapGeoToScreen(
+  lat: number,
+  lng: number,
+  viewW: number,
+  viewH: number,
+  map: MapContext,
+): { x: number; y: number } {
+  const z = mapZoom(map);
+  const { dx, dy } = pixelOffsetFromCenter(lat, lng, map.lat, map.lng, z);
+  return { x: viewW / 2 + dx, y: viewH / 2 + dy };
+}
+
+/** Масштаб толщины штриха при смене zoom (размер задан при captureZoom). */
+export function strokeSizeAtZoom(sizeAtCapture: number, captureZoom: number, currentZoom: number): number {
+  return sizeAtCapture * 2 ** (currentZoom - captureZoom);
+}
+
 /** Смещение точки от центра карты в пикселях (при текущем zoom). */
 export function pixelOffsetFromCenter(
   pointLat: number,

@@ -1,4 +1,6 @@
 import { drawArrow, drawSquareStroke } from "./inc/shapes";
+import { projectStoredStroke } from "./inc/geo-stroke";
+import { getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import type { DrawingOverlayHost } from "./2.1-overlay-types";
 
@@ -14,17 +16,23 @@ export function redraw(host: DrawingOverlayHost): void {
   const h = window.innerHeight;
   const c = host.ctx;
   c.clearRect(0, 0, w, h);
-  for (const s of host.strokes) {
-    if (s.kind === "brush") {
-      renderStroke(c, s.points, { color: s.color, size: s.size });
-    } else if (s.kind === "eraser") {
-      renderEraserStroke(c, s.points, s.size);
-    } else if (s.kind === "arrow") {
-      drawArrow(c, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
-    } else {
-      drawSquareStroke(c, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
+
+  const map = getViewportMap(host);
+  if (map) {
+    for (const s of host.strokes) {
+      const projected = projectStoredStroke(s, map, w, h);
+      if (projected.kind === "brush") {
+        renderStroke(c, projected.points, { color: projected.color, size: projected.size });
+      } else if (projected.kind === "eraser") {
+        renderEraserStroke(c, projected.points, projected.size);
+      } else if (projected.kind === "arrow") {
+        drawArrow(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
+      } else {
+        drawSquareStroke(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
+      }
     }
   }
+
   if (!host.current) {
     return;
   }

@@ -13,7 +13,6 @@ type LiveListener = (map: MapContext) => void;
 type PanListener = (pan: { dx: number; dy: number; dragging: boolean }) => void;
 
 let liveMap: MapContext | null = null;
-let liveMapAt = 0;
 let listener: LiveListener | null = null;
 let panListener: PanListener | null = null;
 let installed = false;
@@ -32,7 +31,7 @@ function normalizeLiveMap(raw: unknown): MapContext | null {
   const zoomRaw = o.zoom;
   const zoom =
     typeof zoomRaw === "number" && Number.isFinite(zoomRaw) && zoomRaw > 0
-      ? Math.round(zoomRaw)
+      ? zoomRaw
       : undefined;
   return { provider, lat, lng, ...(zoom != null ? { zoom } : {}) };
 }
@@ -76,7 +75,7 @@ function injectLiveMapScript(): void {
           provider: "yandex",
           lat: parseFloat(m[2]),
           lng: parseFloat(m[1]),
-          zoom: z ? Math.round(parseFloat(z[1])) : null,
+          zoom: z ? parseFloat(z[1]) : null,
         };
       }
       m = href.match(/@(-?\\d+(?:\\.\\d+)?),(-?\\d+(?:\\.\\d+)?),(\\d+(?:\\.\\d+)?)z/i);
@@ -85,7 +84,7 @@ function injectLiveMapScript(): void {
           provider: "google",
           lat: parseFloat(m[1]),
           lng: parseFloat(m[2]),
-          zoom: Math.round(parseFloat(m[3])),
+          zoom: parseFloat(m[3]),
         };
       }
     } catch (e) {}
@@ -94,7 +93,7 @@ function injectLiveMapScript(): void {
 
   function send(map) {
     if (!map || typeof map.lat !== "number" || typeof map.lng !== "number") return;
-    var z = map.zoom != null ? Math.round(map.zoom) : "";
+    var z = map.zoom != null ? Number(map.zoom).toFixed(3) : "";
     var key = map.lat.toFixed(8) + ":" + map.lng.toFixed(8) + ":" + z;
     if (key === lastSent) return;
     lastSent = key;
@@ -138,7 +137,7 @@ function injectLiveMapScript(): void {
         provider: "yandex",
         lat: c[0],
         lng: c[1],
-        zoom: z != null && z > 0 ? Math.round(z) : null,
+        zoom: z != null && z > 0 ? z : null,
       };
     } catch (e) {
       return null;
@@ -399,7 +398,6 @@ function onWindowMessage(event: MessageEvent): void {
     return;
   }
   liveMap = map;
-  liveMapAt = Date.now();
   listener?.(map);
 }
 

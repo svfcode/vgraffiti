@@ -1,4 +1,5 @@
 import type { StrokePoint } from "./inc/stroke";
+import type { MapContext } from "../lib/map-context";
 
 export const Z_OVERLAY = 2147483000;
 
@@ -34,11 +35,32 @@ export type UiMode = "nav" | "draw";
 
 export const TOOL_CYCLE_ORDER: readonly ToolId[] = ["brush", "eraser", "arrow", "square"];
 
+/** Точка штриха в географических координатах: [lat, lng, pressure]. */
+export type GeoPoint = [lat: number, lng: number, pressure: number];
+
 export type StoredStroke =
-  | { kind: "brush"; points: StrokePoint[]; color: string; size: number }
-  | { kind: "eraser"; points: StrokePoint[]; size: number }
-  | { kind: "arrow"; x0: number; y0: number; x1: number; y1: number; color: string; lw: number }
-  | { kind: "square"; x0: number; y0: number; x1: number; y1: number; color: string; lw: number };
+  | { kind: "brush"; points: GeoPoint[]; color: string; size: number; zoom: number }
+  | { kind: "eraser"; points: GeoPoint[]; size: number; zoom: number }
+  | {
+      kind: "arrow";
+      lat0: number;
+      lng0: number;
+      lat1: number;
+      lng1: number;
+      color: string;
+      lw: number;
+      zoom: number;
+    }
+  | {
+      kind: "square";
+      lat0: number;
+      lng0: number;
+      lat1: number;
+      lng1: number;
+      color: string;
+      lw: number;
+      zoom: number;
+    };
 
 export type CurrentGesture =
   | { tool: "brush"; points: StrokePoint[] }
@@ -88,6 +110,8 @@ export type PanelElements = {
   redoBtn: HTMLButtonElement;
 };
 
+export type PanVisual = { dx: number; dy: number; dragging: boolean };
+
 export interface DrawingOverlayHost extends PanelElements {
   readonly root: HTMLDivElement;
   readonly canvas: HTMLCanvasElement;
@@ -111,6 +135,12 @@ export interface DrawingOverlayHost extends PanelElements {
   barTopPx: number | null;
   dragBar: { dx: number; dy: number } | null;
   lastHoverClient: { x: number; y: number };
+
+  mapContext: MapContext | null;
+  panVisual: PanVisual | null;
+
+  getViewportMap(): MapContext | null;
+  syncMapFollow(): void;
 
   scheduleRedraw(): void;
   syncUndoRedoButtons(): void;

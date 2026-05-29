@@ -1,7 +1,12 @@
-import { readMapContext } from "../lib/map-context";
+import { readMapContext, type MapContext } from "../lib/map-context";
 import { createShadowDom } from "./2.2-create-shadow-dom";
 import { createCanvas } from "./canvas/2.5-create-canvas";
 import { initPanel, queryPanelElements } from "./panel/2.6-init-panel";
+import {
+  getViewportMap,
+  installMapBinding,
+  syncMapFollow,
+} from "./inc/map-binding";
 import {
   cancelActiveStroke,
   finishStroke,
@@ -34,6 +39,7 @@ import {
 import type {
   CurrentGesture,
   DrawingOverlayHost,
+  PanVisual,
   StoredStroke,
   ToolId,
   UiMode,
@@ -92,6 +98,9 @@ export class DrawingOverlay implements DrawingOverlayHost {
   dragBar: { dx: number; dy: number } | null = null;
   readonly lastHoverClient = { x: 0, y: 0 };
 
+  mapContext: MapContext | null = readMapContext();
+  panVisual: PanVisual | null = null;
+
   readonly onGlobalPointerUp = (ev: PointerEvent): void => {
     this.finishStroke(ev);
   };
@@ -128,6 +137,15 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   private init(): void {
     initPanel(this);
+    installMapBinding(this);
+  }
+
+  getViewportMap(): MapContext | null {
+    return getViewportMap(this);
+  }
+
+  syncMapFollow(): void {
+    syncMapFollow(this);
   }
 
   scheduleRedraw(): void {

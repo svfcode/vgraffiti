@@ -66,4 +66,5 @@ export function initPanel(host: DrawingOverlayHost): void {
   applyBarPosition(host);
   syncUndoRedoButtons(host);
   resizeCanvas(host);
+  host.syncMapFollow();
 }

@@ -182,6 +182,7 @@ function onModeClick(host: DrawingOverlayHost, e: MouseEvent): void {
   }
   host.uiMode = m;
   syncModeButtons(host);
+  host.syncMapFollow();
 }
 
 function onDcFgClick(host: DrawingOverlayHost, e: MouseEvent): void {

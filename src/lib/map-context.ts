@@ -37,7 +37,7 @@ function parseYandexMapsUrl(href: string): MapContext | null {
         provider: "yandex",
         lat,
         lng,
-        ...(zoom != null ? { zoom: Math.round(zoom) } : {}),
+        ...(zoom != null ? { zoom } : {}),
       };
     }
   }
@@ -53,7 +53,7 @@ function parseYandexMapsUrl(href: string): MapContext | null {
         provider: "yandex",
         lat,
         lng,
-        ...(zoom != null ? { zoom: Math.round(zoom) } : {}),
+        ...(zoom != null ? { zoom } : {}),
       };
     }
   }
@@ -90,7 +90,7 @@ function parseGoogleMapsUrl(href: string): MapContext | null {
         provider: "google",
         lat,
         lng,
-        ...(zoom != null ? { zoom: Math.round(zoom) } : {}),
+        ...(zoom != null ? { zoom } : {}),
       };
     }
   }

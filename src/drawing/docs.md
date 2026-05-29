@@ -23,6 +23,8 @@
 | **`handlers/2.6.3-handle-panel-move.ts`** | Перетаскивание панели и прозрачность toolbar. |
 | **`handlers/2.6.4-handle-shortcut.ts`** | Горячие клавиши (Ctrl+Z, Ctrl+Shift+Z, Ctrl+X, Ctrl+Q). |
 | **`inc/stroke.ts`** | Штрихи кисти и ластика (`perfect-freehand`). |
+| **`inc/geo-stroke.ts`** | Проекция штрихов lat/lng ↔ экран, масштаб толщины по zoom. |
+| **`inc/map-binding.ts`** | Подписка на `map-live-probe`, `getViewportMap`, режим follow в «Нав». |
 | **`inc/shapes.ts`** | Примитивы: стрелка и прямоугольник. |
 
 ## Зависимости между файлами
@@ -43,7 +45,9 @@
         │     ├── handlers/2.6.4-handle-shortcut.ts
         │     └── canvas/2.5-create-canvas.ts (bind)
         ├── 2.11-rerender.ts
+        ├── inc/geo-stroke.ts
+        ├── inc/map-binding.ts
         ├── inc/shapes.ts
         ├── inc/stroke.ts
-        └── ../lib/map-context (режим nav на картах)
+        └── ../lib/map-context, ../lib/map-projection, ../lib/map-live-probe
 ```
