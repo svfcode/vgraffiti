@@ -138,9 +138,12 @@ export interface DrawingOverlayHost extends PanelElements {
 
   mapContext: MapContext | null;
   panVisual: PanVisual | null;
+  mapNativeRender: boolean;
+  mapZooming: boolean;
 
   getViewportMap(): MapContext | null;
   syncMapFollow(): void;
+  syncStrokesToBridge(): void;
 
   scheduleRedraw(): void;
   syncUndoRedoButtons(): void;

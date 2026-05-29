@@ -42,7 +42,7 @@ function parseYandexMapsUrl(href: string): MapContext | null {
     }
   }
 
-  const m = href.match(/(?:^|[/?&#])ll=(-?\d+(?:\.\d+)?)[,%2C](-?\d+(?:\.\d+)?)/i);
+  const m = href.match(/(?:^|[/?&#])ll=(-?\d+(?:\.\d+)?)(?:,|%2C)(-?\d+(?:\.\d+)?)/i);
   if (m) {
     const lng = parseCoord(m[1]);
     const lat = parseCoord(m[2]);
@@ -58,7 +58,7 @@ function parseYandexMapsUrl(href: string): MapContext | null {
     }
   }
 
-  const hashLl = href.match(/[?&#]ll=(-?\d+(?:\.\d+)?)[,%2C](-?\d+(?:\.\d+)?)/i);
+  const hashLl = href.match(/[?&#]ll=(-?\d+(?:\.\d+)?)(?:,|%2C)(-?\d+(?:\.\d+)?)/i);
   if (hashLl) {
     const lng = parseCoord(hashLl[1]);
     const lat = parseCoord(hashLl[2]);
@@ -67,7 +67,7 @@ function parseYandexMapsUrl(href: string): MapContext | null {
     }
   }
 
-  const geo = href.match(/\/(\d{1,3}\.\d+)[,%2C](\d{1,2}\.\d+)(?:\/|[?&#]|$)/i);
+  const geo = href.match(/\/(\d{1,3}\.\d+)(?:,|%2C)(\d{1,2}\.\d+)(?:\/|[?&#]|$)/i);
   if (geo) {
     const lng = parseCoord(geo[1]);
     const lat = parseCoord(geo[2]);

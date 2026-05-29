@@ -50,4 +50,8 @@
         ├── inc/shapes.ts
         ├── inc/stroke.ts
         └── ../lib/map-context, ../lib/map-projection, ../lib/map-live-probe
+              └── live-центр карты + нативный слой ymaps приходят от MAIN-world моста:
+                  entrypoints/map-bridge.content.ts → ../lib/map-bridge-main.ts
+                  (протокол: ../lib/map-bridge-protocol.ts)
+                  завершённые штрихи рисует ymaps (drift-free), overlay — только текущий жест
 ```

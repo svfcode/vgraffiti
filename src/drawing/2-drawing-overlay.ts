@@ -6,6 +6,7 @@ import {
   getViewportMap,
   installMapBinding,
   syncMapFollow,
+  syncStrokesToBridge,
 } from "./inc/map-binding";
 import {
   cancelActiveStroke,
@@ -100,6 +101,8 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   mapContext: MapContext | null = readMapContext();
   panVisual: PanVisual | null = null;
+  mapNativeRender = false;
+  mapZooming = false;
 
   readonly onGlobalPointerUp = (ev: PointerEvent): void => {
     this.finishStroke(ev);
@@ -146,6 +149,10 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   syncMapFollow(): void {
     syncMapFollow(this);
+  }
+
+  syncStrokesToBridge(): void {
+    syncStrokesToBridge(this);
   }
 
   scheduleRedraw(): void {

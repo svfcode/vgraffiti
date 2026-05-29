@@ -41,6 +41,7 @@ export function performUndo(host: DrawingOverlayHost): void {
   host.future.push(cloneStrokes(host.strokes));
   const snap = host.past.pop()!;
   host.strokes.splice(0, host.strokes.length, ...snap);
+  host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
 }
@@ -58,6 +59,7 @@ export function performRedo(host: DrawingOverlayHost): void {
   host.past.push(cloneStrokes(host.strokes));
   const snap = host.future.pop()!;
   host.strokes.splice(0, host.strokes.length, ...snap);
+  host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
 }
@@ -147,6 +149,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   } catch {
     /* ignore */
   }
+  host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
   if (host.wantsSizeCursor() && host.canvas.matches(":hover")) {
@@ -166,6 +169,7 @@ export function onClearClick(host: DrawingOverlayHost, e: MouseEvent): void {
     host.strokes.length = 0;
   }
   host.moreDetails.open = false;
+  host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
 }
