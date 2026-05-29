@@ -1,5 +1,5 @@
 import { mapContextMoved, readMapContext, type MapContext } from "../../lib/map-context";
-import { mapCenterFromPanPixels, mapZoom } from "../../lib/map-projection";
+import { mapCenterFromPanPixels, mapWithZoomVisual, mapZoom } from "../../lib/map-projection";
 import {
   broadcastMapFollow,
   broadcastStrokes,
@@ -19,9 +19,13 @@ const URL_POLL_MS = 250;
 const LIVE_FRESH_MS = 1500;
 
 export function getViewportMap(host: DrawingOverlayHost): MapContext | null {
-  const base = host.mapContext ?? readMapContext();
+  let base = host.mapContext ?? readMapContext();
   if (!base) {
     return null;
+  }
+  const zv = host.zoomVisual;
+  if (zv && Math.abs(zv.deltaZ) > 1e-6) {
+    base = mapWithZoomVisual(zv.anchor, zv.deltaZ, zv.pivotX, zv.pivotY);
   }
   const pan = host.panVisual;
   if (pan && (pan.dx !== 0 || pan.dy !== 0)) {
@@ -42,6 +46,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   const unbind = installLiveMapProbe(
     (map) => {
       lastLiveAt = Date.now();
+      if (host.mapZooming) {
+        return;
+      }
       const prev = host.mapContext;
       // Новый центр уже учитывает накопленный pan — сбрасываем смещение
       // атомарно с обновлением центра, иначе кадр со старым центром + pan=0
@@ -74,12 +81,31 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
       }
       host.mapZooming = zooming;
       if (!zooming) {
-        // Зум осел — подхватываем актуальный центр/зум из URL и репроецируем.
+        host.zoomVisual = null;
         const urlMap = readMapContext();
         if (urlMap) {
           host.mapContext = urlMap;
           host.panVisual = null;
         }
+      }
+      host.scheduleRedraw();
+    },
+    (zoom) => {
+      if (
+        !zoom.anchor ||
+        typeof zoom.anchor.lat !== "number" ||
+        typeof zoom.anchor.lng !== "number"
+      ) {
+        host.zoomVisual = null;
+      } else if (Math.abs(zoom.deltaZ) < 1e-6 && !host.mapZooming) {
+        host.zoomVisual = null;
+      } else {
+        host.zoomVisual = {
+          anchor: zoom.anchor,
+          deltaZ: zoom.deltaZ,
+          pivotX: zoom.pivotX,
+          pivotY: zoom.pivotY,
+        };
       }
       host.scheduleRedraw();
     },
@@ -92,6 +118,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   // тогда live-события не приходят. Опрашиваем URL (ll=/z= или @lat,lng,z) —
   // карта обновляет его после pan/zoom, и рисунок «прилипает» к месту.
   const urlPoll = window.setInterval(() => {
+    if (host.mapZooming) {
+      return;
+    }
     if (Date.now() - lastLiveAt < LIVE_FRESH_MS) {
       return;
     }

@@ -11,6 +11,7 @@ import {
   RENDER_MODE_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
+  ZOOM_VISUAL_MSG,
   type GeoStrokePayload,
 } from "./map-bridge-protocol";
 
@@ -18,12 +19,19 @@ type LiveListener = (map: MapContext) => void;
 type PanListener = (pan: { dx: number; dy: number; dragging: boolean }) => void;
 type RenderModeListener = (native: boolean) => void;
 type ZoomStateListener = (zooming: boolean) => void;
+type ZoomVisualListener = (zoom: {
+  deltaZ: number;
+  pivotX: number;
+  pivotY: number;
+  anchor: MapContext;
+}) => void;
 
 let liveMap: MapContext | null = null;
 let listener: LiveListener | null = null;
 let panListener: PanListener | null = null;
 let renderModeListener: RenderModeListener | null = null;
 let zoomStateListener: ZoomStateListener | null = null;
+let zoomVisualListener: ZoomVisualListener | null = null;
 let installed = false;
 
 function normalizeLiveMap(raw: unknown): MapContext | null {
@@ -73,6 +81,17 @@ function onWindowMessage(event: MessageEvent): void {
     zoomStateListener?.(!!data.zooming);
     return;
   }
+  if (data.type === ZOOM_VISUAL_MSG) {
+    const anchor = normalizeLiveMap(data.anchor);
+    if (!anchor) {
+      return;
+    }
+    const deltaZ = typeof data.deltaZ === "number" ? data.deltaZ : 0;
+    const pivotX = typeof data.pivotX === "number" ? data.pivotX : window.innerWidth / 2;
+    const pivotY = typeof data.pivotY === "number" ? data.pivotY : window.innerHeight / 2;
+    zoomVisualListener?.({ deltaZ, pivotX, pivotY, anchor });
+    return;
+  }
   if (data.type !== LIVE_MSG) {
     return;
   }
@@ -90,11 +109,13 @@ export function installLiveMapProbe(
   onPan?: PanListener,
   onRenderMode?: RenderModeListener,
   onZoomState?: ZoomStateListener,
+  onZoomVisual?: ZoomVisualListener,
 ): () => void {
   listener = onUpdate;
   panListener = onPan ?? null;
   renderModeListener = onRenderMode ?? null;
   zoomStateListener = onZoomState ?? null;
+  zoomVisualListener = onZoomVisual ?? null;
   if (!installed) {
     installed = true;
     window.addEventListener("message", onWindowMessage);
@@ -112,6 +133,9 @@ export function installLiveMapProbe(
     }
     if (zoomStateListener === onZoomState) {
       zoomStateListener = null;
+    }
+    if (zoomVisualListener === onZoomVisual) {
+      zoomVisualListener = null;
     }
   };
 }

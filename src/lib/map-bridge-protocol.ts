@@ -11,6 +11,8 @@ export const STROKES_MSG = "vgf:mapStrokes";
 export const RENDER_MODE_MSG = "vgf:mapRenderMode";
 /** Bridge → overlay: идёт анимация зума (нет реального масштаба по кадрам). */
 export const ZOOM_STATE_MSG = "vgf:mapZoomState";
+/** Bridge → overlay: визуальный зум (deltaZ + pivot) пока URL z не догнал. */
+export const ZOOM_VISUAL_MSG = "vgf:mapZoomVisual";
 
 /** Гео-штрих для нативного рендера (подмножество StoredStroke без pressure). */
 export type GeoStrokePayload =
@@ -39,6 +41,14 @@ export type RenderModeMessage = {
 export type ZoomStateMessage = {
   type: typeof ZOOM_STATE_MSG;
   zooming: boolean;
+};
+
+export type ZoomVisualMessage = {
+  type: typeof ZOOM_VISUAL_MSG;
+  deltaZ: number;
+  pivotX: number;
+  pivotY: number;
+  anchor: { provider: "yandex" | "google"; lat: number; lng: number; zoom: number | null };
 };
 
 export type LiveMapMessage = {

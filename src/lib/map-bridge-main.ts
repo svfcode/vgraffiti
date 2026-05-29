@@ -15,6 +15,7 @@ import {
   RENDER_MODE_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
+  ZOOM_VISUAL_MSG,
   type GeoStrokePayload,
 } from "./map-bridge-protocol";
 
@@ -292,6 +293,10 @@ export function runMapBridge(): void {
   }
 
   function syncFromMapsOrUrl(): void {
+    if (zooming) {
+      syncZoomFromUrl();
+      return;
+    }
     const st = readLiveFromMaps();
     if (st) {
       anchor = st;
@@ -395,35 +400,180 @@ export function runMapBridge(): void {
     }
   }
 
-  // Анимация зума: на WebGL-картах (yandex.ru/maps) нет реального масштаба
-  // по кадрам, поэтому overlay прячет штрихи на время зума и точно показывает
-  // их после оседания. Детект — по вводу (колесо/двойной клик/клавиши).
+  // Анимация зума: на WebGL-картах (yandex.ru/maps) z в URL отстаёт от анимации.
+  // Накапливаем deltaZ с колеса (zoom-to-point) и подхватываем z из URL, когда
+  // он обновится — overlay репроецирует штрихи без дрифта.
   let zooming = false;
   let zoomSettleTimer: ReturnType<typeof setTimeout> | null = null;
+  let zoomPoll: ReturnType<typeof setInterval> | null = null;
   const ZOOM_SETTLE_MS = 320;
+  let zoomDeltaZ = 0;
+  let zoomPivotX = 0;
+  let zoomPivotY = 0;
+  let zoomAnchor: BridgeMap | null = null;
+  let zoomStartZ: number | null = null;
+  let zoomEndStarted = 0;
+  const ZOOM_MAX_WAIT_MS = 2500;
+
+  function wheelToDeltaZ(e: WheelEvent): number {
+    let dy = e.deltaY;
+    if (e.deltaMode === 1) {
+      dy *= 16;
+    } else if (e.deltaMode === 2) {
+      dy *= window.innerHeight;
+    }
+    // Колесо мыши — дискретный шаг ±1; тачпад — плавный дробный.
+    if (Math.abs(dy) >= 40) {
+      return dy > 0 ? -1 : 1;
+    }
+    return -dy / 120;
+  }
+
+  /** Центр крупнейшего canvas карты — pivot для +/- и fallback. */
+  function findMapPivot(): { x: number; y: number } {
+    let best: DOMRect | null = null;
+    let bestArea = 0;
+    for (const el of document.querySelectorAll("canvas")) {
+      const r = el.getBoundingClientRect();
+      if (r.width < 200 || r.height < 200) {
+        continue;
+      }
+      const area = r.width * r.height;
+      if (area > bestArea) {
+        bestArea = area;
+        best = r;
+      }
+    }
+    if (best) {
+      return { x: best.left + best.width / 2, y: best.top + best.height / 2 };
+    }
+    return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  }
+
+  function beginZoomVisual(pivotX?: number, pivotY?: number): void {
+    if (!zoomAnchor) {
+      zoomAnchor = anchor ? { ...anchor } : parseUrlMap();
+      zoomDeltaZ = 0;
+      zoomStartZ =
+        zoomAnchor?.zoom != null && zoomAnchor.zoom > 0 ? zoomAnchor.zoom : null;
+    }
+    if (typeof pivotX === "number" && typeof pivotY === "number") {
+      zoomPivotX = pivotX;
+      zoomPivotY = pivotY;
+    } else {
+      const p = findMapPivot();
+      zoomPivotX = p.x;
+      zoomPivotY = p.y;
+    }
+  }
+
+  function sendZoomVisual(): void {
+    if (!zoomAnchor) {
+      return;
+    }
+    window.postMessage(
+      {
+        type: ZOOM_VISUAL_MSG,
+        deltaZ: zoomDeltaZ,
+        pivotX: zoomPivotX,
+        pivotY: zoomPivotY,
+        anchor: zoomAnchor,
+      },
+      "*",
+    );
+  }
+
+  function stopZoomPoll(): void {
+    if (zoomPoll) {
+      clearInterval(zoomPoll);
+      zoomPoll = null;
+    }
+  }
+
+  function startZoomPoll(): void {
+    if (zoomPoll) {
+      return;
+    }
+    zoomPoll = setInterval(() => {
+      if (followActive && zooming) {
+        syncZoomFromUrl();
+      } else {
+        stopZoomPoll();
+      }
+    }, 24);
+  }
+
+  /** Во время зума подхватываем только z из URL — ll меняется позже и ломает pivot. */
+  function syncZoomFromUrl(): void {
+    const urlMap = parseUrlMap();
+    if (!urlMap || !zoomAnchor) {
+      return;
+    }
+    const startZ = zoomAnchor.zoom && zoomAnchor.zoom > 0 ? zoomAnchor.zoom : null;
+    const urlZ = urlMap.zoom != null && urlMap.zoom > 0 ? urlMap.zoom : null;
+    if (startZ != null && urlZ != null && Math.abs(urlZ - startZ) > 0.001) {
+      const nextDelta = urlZ - startZ;
+      if (Math.abs(nextDelta - zoomDeltaZ) > 0.001) {
+        zoomDeltaZ = nextDelta;
+        sendZoomVisual();
+      }
+    }
+  }
 
   function postZoom(state: boolean): void {
     window.postMessage({ type: ZOOM_STATE_MSG, zooming: state }, "*");
   }
 
-  function endZoom(): void {
+  function tryEndZoom(): void {
+    const urlMap = parseUrlMap();
+    const startZ = zoomStartZ ?? zoomAnchor?.zoom ?? null;
+    const urlZ = urlMap?.zoom != null && urlMap.zoom > 0 ? urlMap.zoom : null;
+    const urlReady =
+      startZ == null ||
+      urlZ == null ||
+      Math.abs(urlZ - startZ) > 0.001 ||
+      Math.abs(zoomDeltaZ) < 0.001;
+    const timedOut = Date.now() - zoomEndStarted > ZOOM_MAX_WAIT_MS;
+
+    if (!urlReady && !timedOut) {
+      syncZoomFromUrl();
+      zoomSettleTimer = setTimeout(tryEndZoom, 80);
+      return;
+    }
+
     zoomSettleTimer = null;
+    stopZoomPoll();
     if (zooming) {
       zooming = false;
       postZoom(false);
     }
+    zoomDeltaZ = 0;
+    zoomAnchor = null;
+    zoomStartZ = null;
     syncFromMapsOrUrl();
     startSettlePoll();
   }
 
-  function markZoom(): void {
+  function endZoom(): void {
+    zoomEndStarted = Date.now();
+    tryEndZoom();
+  }
+
+  function markZoom(deltaOverride?: number, pivotX?: number, pivotY?: number): void {
     if (!followActive) {
       return;
     }
     awaitingMove = false;
+    beginZoomVisual(pivotX, pivotY);
+    if (typeof deltaOverride === "number") {
+      zoomDeltaZ += deltaOverride;
+      sendZoomVisual();
+    }
     if (!zooming) {
       zooming = true;
+      sendZoomVisual();
       postZoom(true);
+      startZoomPoll();
     }
     if (zoomSettleTimer) {
       clearTimeout(zoomSettleTimer);
@@ -609,9 +759,14 @@ export function runMapBridge(): void {
   window.addEventListener(
     "wheel",
     (e: Event) => {
-      if (!isOverlayUi(e)) {
-        markZoom();
+      const we = e as WheelEvent;
+      if (!followActive || isOverlayUi(e)) {
+        return;
       }
+      markZoom(undefined, we.clientX, we.clientY);
+      zoomDeltaZ += wheelToDeltaZ(we);
+      zoomDeltaZ = Math.max(-5, Math.min(5, zoomDeltaZ));
+      sendZoomVisual();
     },
     true,
   );
@@ -619,9 +774,11 @@ export function runMapBridge(): void {
   window.addEventListener(
     "dblclick",
     (e: Event) => {
-      if (!isOverlayUi(e)) {
-        markZoom();
+      const de = e as MouseEvent;
+      if (!followActive || isOverlayUi(e)) {
+        return;
       }
+      markZoom(1, de.clientX, de.clientY);
     },
     true,
   );
@@ -629,8 +786,13 @@ export function runMapBridge(): void {
   window.addEventListener(
     "keydown",
     (e: KeyboardEvent) => {
-      if (e.key === "+" || e.key === "-" || e.key === "=" || e.key === "_") {
-        markZoom();
+      if (!followActive) {
+        return;
+      }
+      if (e.key === "+" || e.key === "=") {
+        markZoom(1);
+      } else if (e.key === "-" || e.key === "_") {
+        markZoom(-1);
       }
     },
     true,

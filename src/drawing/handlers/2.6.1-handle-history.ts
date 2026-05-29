@@ -1,7 +1,7 @@
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 import { screenPointsToGeo } from "../inc/geo-stroke";
 import { captureZoom, getViewportMap } from "../inc/map-binding";
-import { screenToMapGeo } from "../../lib/map-projection";
+import { getMapViewportFrame, screenToMapGeo } from "../../lib/map-projection";
 
 export function pushHistoryBeforeMutation(host: DrawingOverlayHost): void {
   host.past.push(cloneStrokes(host.strokes));
@@ -74,8 +74,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
 
   const cur = host.current;
   const map = getViewportMap(host);
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const frame = getMapViewportFrame();
   const zoom = captureZoom(host);
 
   if (!map) {
@@ -94,7 +93,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     pushHistoryBeforeMutation(host);
     host.strokes.push({
       kind: "brush",
-      points: screenPointsToGeo(cur.points, map, w, h),
+      points: screenPointsToGeo(cur.points, map, frame),
       color: host.fgColor,
       size: host.getBrushSize(),
       zoom,
@@ -103,7 +102,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     pushHistoryBeforeMutation(host);
     host.strokes.push({
       kind: "eraser",
-      points: screenPointsToGeo(cur.points, map, w, h),
+      points: screenPointsToGeo(cur.points, map, frame),
       size: host.getEraserSize(),
       zoom,
     });
@@ -111,8 +110,8 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.hypot(x1 - x0, y1 - y0) >= 4) {
       pushHistoryBeforeMutation(host);
-      const p0 = screenToMapGeo(x0, y0, w, h, map);
-      const p1 = screenToMapGeo(x1, y1, w, h, map);
+      const p0 = screenToMapGeo(x0, y0, map, frame);
+      const p1 = screenToMapGeo(x1, y1, map, frame);
       host.strokes.push({
         kind: "arrow",
         lat0: p0.lat,
@@ -128,8 +127,8 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.abs(x1 - x0) >= 3 || Math.abs(y1 - y0) >= 3) {
       pushHistoryBeforeMutation(host);
-      const p0 = screenToMapGeo(x0, y0, w, h, map);
-      const p1 = screenToMapGeo(x1, y1, w, h, map);
+      const p0 = screenToMapGeo(x0, y0, map, frame);
+      const p1 = screenToMapGeo(x1, y1, map, frame);
       host.strokes.push({
         kind: "square",
         lat0: p0.lat,

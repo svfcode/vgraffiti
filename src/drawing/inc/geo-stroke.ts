@@ -1,9 +1,11 @@
 import type { MapContext } from "../../lib/map-context";
 import {
+  getMapViewportFrame,
   mapGeoToScreen,
   mapZoom,
   screenToMapGeo,
   strokeSizeAtZoom,
+  type ViewportFrame,
 } from "../../lib/map-projection";
 import type { StrokePoint } from "./stroke";
 import type { GeoPoint, StoredStroke } from "../2.1-overlay-types";
@@ -13,39 +15,35 @@ export function screenPointToGeo(
   y: number,
   pressure: number,
   map: MapContext,
-  viewW: number,
-  viewH: number,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): GeoPoint {
-  const { lat, lng } = screenToMapGeo(x, y, viewW, viewH, map);
+  const { lat, lng } = screenToMapGeo(x, y, map, frame);
   return [lat, lng, pressure];
 }
 
 export function geoPointToScreen(
   point: GeoPoint,
   map: MapContext,
-  viewW: number,
-  viewH: number,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): StrokePoint {
-  const { x, y } = mapGeoToScreen(point[0], point[1], viewW, viewH, map);
+  const { x, y } = mapGeoToScreen(point[0], point[1], map, frame);
   return [x, y, point[2]];
 }
 
 export function screenPointsToGeo(
   points: StrokePoint[],
   map: MapContext,
-  viewW: number,
-  viewH: number,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): GeoPoint[] {
-  return points.map(([x, y, p]) => screenPointToGeo(x, y, p, map, viewW, viewH));
+  return points.map(([x, y, p]) => screenPointToGeo(x, y, p, map, frame));
 }
 
 export function geoPointsToScreen(
   points: GeoPoint[],
   map: MapContext,
-  viewW: number,
-  viewH: number,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): StrokePoint[] {
-  return points.map((pt) => geoPointToScreen(pt, map, viewW, viewH));
+  return points.map((pt) => geoPointToScreen(pt, map, frame));
 }
 
 export function scaledStrokeSize(stroke: StoredStroke, map: MapContext): number {
@@ -62,8 +60,7 @@ export function scaledStrokeSize(stroke: StoredStroke, map: MapContext): number 
 export function projectStoredStroke(
   stroke: StoredStroke,
   map: MapContext,
-  viewW: number,
-  viewH: number,
+  frame: ViewportFrame = getMapViewportFrame(),
 ):
   | { kind: "brush"; points: StrokePoint[]; color: string; size: number }
   | { kind: "eraser"; points: StrokePoint[]; size: number }
@@ -73,7 +70,7 @@ export function projectStoredStroke(
   if (stroke.kind === "brush") {
     return {
       kind: "brush",
-      points: geoPointsToScreen(stroke.points, map, viewW, viewH),
+      points: geoPointsToScreen(stroke.points, map, frame),
       color: stroke.color,
       size,
     };
@@ -81,12 +78,12 @@ export function projectStoredStroke(
   if (stroke.kind === "eraser") {
     return {
       kind: "eraser",
-      points: geoPointsToScreen(stroke.points, map, viewW, viewH),
+      points: geoPointsToScreen(stroke.points, map, frame),
       size,
     };
   }
-  const p0 = mapGeoToScreen(stroke.lat0, stroke.lng0, viewW, viewH, map);
-  const p1 = mapGeoToScreen(stroke.lat1, stroke.lng1, viewW, viewH, map);
+  const p0 = mapGeoToScreen(stroke.lat0, stroke.lng0, map, frame);
+  const p1 = mapGeoToScreen(stroke.lat1, stroke.lng1, map, frame);
   if (stroke.kind === "arrow") {
     return {
       kind: "arrow",

@@ -112,6 +112,13 @@ export type PanelElements = {
 
 export type PanVisual = { dx: number; dy: number; dragging: boolean };
 
+export type ZoomVisual = {
+  anchor: MapContext;
+  deltaZ: number;
+  pivotX: number;
+  pivotY: number;
+};
+
 export interface DrawingOverlayHost extends PanelElements {
   readonly root: HTMLDivElement;
   readonly canvas: HTMLCanvasElement;
@@ -138,6 +145,7 @@ export interface DrawingOverlayHost extends PanelElements {
 
   mapContext: MapContext | null;
   panVisual: PanVisual | null;
+  zoomVisual: ZoomVisual | null;
   mapNativeRender: boolean;
   mapZooming: boolean;
 

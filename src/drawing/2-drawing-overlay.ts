@@ -41,6 +41,7 @@ import type {
   CurrentGesture,
   DrawingOverlayHost,
   PanVisual,
+  ZoomVisual,
   StoredStroke,
   ToolId,
   UiMode,
@@ -101,6 +102,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   mapContext: MapContext | null = readMapContext();
   panVisual: PanVisual | null = null;
+  zoomVisual: ZoomVisual | null = null;
   mapNativeRender = false;
   mapZooming = false;
 

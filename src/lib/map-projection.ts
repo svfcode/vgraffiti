@@ -22,18 +22,50 @@ export function mapZoom(map: MapContext, fallback = 16): number {
   return z != null && z > 0 ? z : fallback;
 }
 
+export type ViewportFrame = { cx: number; cy: number; w: number; h: number };
+
+/** Центр и размер области карты (крупнейший canvas на странице). */
+export function getMapViewportFrame(): ViewportFrame {
+  let best: DOMRect | null = null;
+  let bestArea = 0;
+  for (const el of document.querySelectorAll("canvas")) {
+    const r = el.getBoundingClientRect();
+    if (r.width < 200 || r.height < 200) {
+      continue;
+    }
+    const area = r.width * r.height;
+    if (area > bestArea) {
+      bestArea = area;
+      best = r;
+    }
+  }
+  if (best) {
+    return {
+      cx: best.left + best.width / 2,
+      cy: best.top + best.height / 2,
+      w: best.width,
+      h: best.height,
+    };
+  }
+  return {
+    cx: window.innerWidth / 2,
+    cy: window.innerHeight / 2,
+    w: window.innerWidth,
+    h: window.innerHeight,
+  };
+}
+
 /** Точка экрана (CSS px) → географические координаты. */
 export function screenToMapGeo(
   sx: number,
   sy: number,
-  viewW: number,
-  viewH: number,
   map: MapContext,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): { lat: number; lng: number } {
   const z = mapZoom(map);
   const center = mercatorPixel(map.lat, map.lng, z);
-  const dx = sx - viewW / 2;
-  const dy = sy - viewH / 2;
+  const dx = sx - frame.cx;
+  const dy = sy - frame.cy;
   return mercatorToLatLng(center.x + dx, center.y + dy, z);
 }
 
@@ -41,13 +73,12 @@ export function screenToMapGeo(
 export function mapGeoToScreen(
   lat: number,
   lng: number,
-  viewW: number,
-  viewH: number,
   map: MapContext,
+  frame: ViewportFrame = getMapViewportFrame(),
 ): { x: number; y: number } {
   const z = mapZoom(map);
   const { dx, dy } = pixelOffsetFromCenter(lat, lng, map.lat, map.lng, z);
-  return { x: viewW / 2 + dx, y: viewH / 2 + dy };
+  return { x: frame.cx + dx, y: frame.cy + dy };
 }
 
 /** Масштаб толщины штриха при смене zoom (размер задан при captureZoom). */
@@ -95,6 +126,30 @@ export function mapCenterFromPanPixels(anchor: MapContext, panPx: PanPixelOffset
   const y2 = y + -panPx.dy;
   const lat = (180 / Math.PI) * Math.atan(Math.sinh(Math.PI * (1 - (2 * y2) / scale)));
   return { ...anchor, lat, lng, zoom: z };
+}
+
+/**
+ * Эффективный контекст карты при визуальном зуме: масштаб z0+deltaZ и центр,
+ * при котором geo-точка под pivot остаётся на экране (zoom-to-point).
+ */
+export function mapWithZoomVisual(
+  anchor: MapContext,
+  deltaZ: number,
+  pivotX: number,
+  pivotY: number,
+  frame: ViewportFrame = getMapViewportFrame(),
+): MapContext {
+  if (Math.abs(deltaZ) < 1e-6) {
+    return anchor;
+  }
+  const z0 = mapZoom(anchor);
+  const z1 = z0 + deltaZ;
+  const pivotGeo = screenToMapGeo(pivotX, pivotY, anchor, frame);
+  const p = mercatorPixel(pivotGeo.lat, pivotGeo.lng, z1);
+  const desiredDx = pivotX - frame.cx;
+  const desiredDy = pivotY - frame.cy;
+  const center = mercatorToLatLng(p.x - desiredDx, p.y - desiredDy, z1);
+  return { ...anchor, lat: center.lat, lng: center.lng, zoom: z1 };
 }
 
 /**

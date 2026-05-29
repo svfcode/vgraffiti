@@ -2,6 +2,7 @@ import { drawArrow, drawSquareStroke } from "./inc/shapes";
 import { projectStoredStroke } from "./inc/geo-stroke";
 import { getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
+import { getMapViewportFrame } from "../lib/map-projection";
 import type { DrawingOverlayHost } from "./2.1-overlay-types";
 
 export function scheduleRedraw(host: DrawingOverlayHost): void {
@@ -17,16 +18,11 @@ export function redraw(host: DrawingOverlayHost): void {
   const c = host.ctx;
   c.clearRect(0, 0, w, h);
 
-  // В нативном режиме завершённые штрихи рисует сам ymaps (гео-объекты),
-  // на canvas остаётся только текущий жест — нет дрифта и репроекции каждый кадр.
-  // Штрихи показываем всегда (не прячем при зуме/пане) — «сначала новое,
-  // потом убрать старое»: старая проекция остаётся на экране и заменяется
-  // новой по готовности (оседание зума / приход URL). Возможен краткий
-  // дрифт во время анимации, но без «провала».
   const map = getViewportMap(host);
+  const frame = getMapViewportFrame();
   if (map && !host.mapNativeRender) {
     for (const s of host.strokes) {
-      const projected = projectStoredStroke(s, map, w, h);
+      const projected = projectStoredStroke(s, map, frame);
       if (projected.kind === "brush") {
         renderStroke(c, projected.points, { color: projected.color, size: projected.size });
       } else if (projected.kind === "eraser") {
