@@ -20,11 +20,20 @@
   <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay">Рис</button>
 </div>
 <div class="journey-row" id="vgf-journey-wrap">
-  <label class="journey-label" for="vgf-journey-name">Путешествие</label>
+  <label class="journey-label" for="vgf-journey-active">Редактирую</label>
+  <div class="journey-active-row">
+    <select id="vgf-journey-active" class="journey-active-select" title="Активное путешествие для редактирования"></select>
+    <button type="button" id="vgf-journey-new" class="journey-new-btn" title="Новое путешествие">+</button>
+  </div>
+  <label class="journey-label journey-name-label" for="vgf-journey-name">
+    Название<span class="journey-dirty-mark" id="vgf-journey-dirty" hidden> *</span>
+  </label>
   <input type="text" id="vgf-journey-name" class="journey-name" autocomplete="off" spellcheck="false" />
   <button type="button" class="journey-save-btn" id="vgf-journey-save" title="Сохранить прогулку в расширении">Сохранить</button>
-  <p class="journey-saved-label">Сохранённые на карте</p>
-  <div class="journey-list" id="vgf-journey-list" role="group" aria-label="Сохранённые прогулки"></div>
+  <details class="journey-saved-pick" id="vgf-journey-saved-pick">
+    <summary class="journey-saved-summary" id="vgf-journey-saved-summary">Сохранённые на карте</summary>
+    <div class="journey-list" id="vgf-journey-list" role="group" aria-label="Сохранённые прогулки на карте"></div>
+  </details>
 </div>
 <div class="tools">
   <button type="button" class="tool on" data-tool="brush" title="Кисть"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37-1.34-1.34a1 1 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a1 1 0 0 0 0-1.41z"/></svg></button>

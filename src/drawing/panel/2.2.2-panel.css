@@ -230,12 +230,89 @@ canvas.layer.vgf-hide-cursor {
 .journey-row[hidden] {
   display: none !important;
 }
-.journey-saved-label {
-  margin: 2px 0 0;
+.journey-saved-pick {
+  margin-top: 2px;
+}
+.journey-saved-summary {
+  list-style: none;
+  cursor: pointer;
   font-size: 10px;
   color: #9aa0a6;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  padding: 4px 0;
+  user-select: none;
+}
+.journey-saved-summary::-webkit-details-marker {
+  display: none;
+}
+.journey-saved-summary::before {
+  content: "▸ ";
+  display: inline-block;
+  transition: transform 0.15s ease;
+}
+.journey-saved-pick[open] .journey-saved-summary::before {
+  transform: rotate(90deg);
+}
+.journey-saved-summary:hover {
+  color: #e8eaed;
+}
+.journey-saved-pick .journey-list {
+  min-height: 0;
+}
+.journey-saved-pick:not([open]) .journey-list {
+  display: none;
+}
+.journey-saved-pick[open] .journey-list {
+  margin-top: 4px;
+}
+.journey-active-row {
+  display: flex;
+  gap: 4px;
+  align-items: stretch;
+}
+.journey-active-select {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e8eaed;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.journey-active-select:focus {
+  outline: none;
+  border-color: #8ab4f8;
+}
+.journey-new-btn {
+  flex-shrink: 0;
+  width: 32px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.25);
+  color: #e8eaed;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+.journey-new-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(138, 180, 248, 0.5);
+}
+.journey-dirty-mark {
+  color: #fbbc04;
+}
+.journey-is-dirty .journey-active-select {
+  border-color: rgba(251, 188, 4, 0.55);
+}
+.journey-name-label {
+  margin-top: 2px;
 }
 .journey-label {
   font-size: 10px;

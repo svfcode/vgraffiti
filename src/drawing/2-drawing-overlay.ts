@@ -41,6 +41,7 @@ import type { SavedJourney } from "./inc/journey-storage";
 import type {
   ActiveJourney,
   CurrentGesture,
+  JourneyBaseline,
   DrawingOverlayHost,
   PanVisual,
   ZoomVisual,
@@ -85,11 +86,15 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly undoBtn: HTMLButtonElement;
   readonly redoBtn: HTMLButtonElement;
   readonly journeyWrap: HTMLDivElement;
+  readonly journeyActiveSelect: HTMLSelectElement;
+  readonly journeyNewBtn: HTMLButtonElement;
+  readonly journeyDirtyMark: HTMLSpanElement;
   readonly journeyNameEl: HTMLInputElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
 
   activeJourney: ActiveJourney | null = null;
+  journeyBaseline: JourneyBaseline | null = null;
   savedJourneys: SavedJourney[] = [];
   selectedJourneyIds = new Set<string>();
   activeTool: ToolId = "brush";
@@ -146,6 +151,9 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.undoBtn = panel.undoBtn;
     this.redoBtn = panel.redoBtn;
     this.journeyWrap = panel.journeyWrap;
+    this.journeyActiveSelect = panel.journeyActiveSelect;
+    this.journeyNewBtn = panel.journeyNewBtn;
+    this.journeyDirtyMark = panel.journeyDirtyMark;
     this.journeyNameEl = panel.journeyNameEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;

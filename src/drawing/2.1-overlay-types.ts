@@ -92,8 +92,16 @@ export function isEditableKeyTarget(target: EventTarget | null): boolean {
   return target.closest("[contenteditable=true]") != null;
 }
 
+export type JourneyBaseline = {
+  name: string;
+  strokes: StoredStroke[];
+};
+
 export type PanelElements = {
   journeyWrap: HTMLDivElement;
+  journeyActiveSelect: HTMLSelectElement;
+  journeyNewBtn: HTMLButtonElement;
+  journeyDirtyMark: HTMLSpanElement;
   journeyNameEl: HTMLInputElement;
   journeySaveBtn: HTMLButtonElement;
   journeyListEl: HTMLDivElement;
@@ -134,6 +142,7 @@ export interface DrawingOverlayHost extends PanelElements {
   readonly root: HTMLDivElement;
 
   activeJourney: ActiveJourney | null;
+  journeyBaseline: JourneyBaseline | null;
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
   readonly canvas: HTMLCanvasElement;

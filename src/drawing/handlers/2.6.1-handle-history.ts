@@ -1,4 +1,5 @@
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
+import { syncJourneyDirtyIndicator } from "./2.6.5-handle-journeys";
 import { screenPointsToGeo } from "../inc/geo-stroke";
 import { captureZoom, getViewportMap } from "../inc/map-binding";
 import { getMapViewportFrame, screenToMapGeo } from "../../lib/map-projection";
@@ -44,6 +45,7 @@ export function performUndo(host: DrawingOverlayHost): void {
   host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
+  syncJourneyDirtyIndicator(host);
 }
 
 export function performRedo(host: DrawingOverlayHost): void {
@@ -62,6 +64,7 @@ export function performRedo(host: DrawingOverlayHost): void {
   host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
+  syncJourneyDirtyIndicator(host);
 }
 
 export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
@@ -151,6 +154,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
+  syncJourneyDirtyIndicator(host);
   if (host.wantsSizeCursor() && host.canvas.matches(":hover")) {
     host.showSizeCursorAt(ev.clientX, ev.clientY);
   } else {
@@ -171,6 +175,7 @@ export function onClearClick(host: DrawingOverlayHost, e: MouseEvent): void {
   host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
+  syncJourneyDirtyIndicator(host);
 }
 
 export function bindHistoryPanelEvents(host: DrawingOverlayHost): void {
