@@ -63,6 +63,13 @@ canvas.layer.vgf-hide-cursor {
   max-width: 240px;
   user-select: none;
 }
+.bar[data-viewport-mode="streetview"] .journey-nudge {
+  display: none !important;
+}
+
+.bar[data-viewport-mode="streetview"] .journey-saved-pick.is-streetview .journey-saved-summary {
+  font-weight: 600;
+}
 .bar-head {
   display: flex;
   align-items: center;
@@ -713,7 +720,13 @@ canvas.layer.vgf-hide-cursor {
   display: block;
   pointer-events: none;
 }
-.journey-item-icon:disabled {
+.journey-item-delete:hover:not(:disabled) {
+  color: #f28b82;
+}
+.journey-item-delete {
+  font-size: 13px;
+  line-height: 1;
+}
   opacity: 0.55;
   cursor: default;
 }

@@ -1,6 +1,11 @@
 import { mapContextMoved, readMapContext, type MapContext } from "../../lib/map-context";
 import { mapCenterFromPanPixels, mapWithZoomVisual, mapZoom } from "../../lib/map-projection";
 import {
+  readStreetViewContext,
+  streetViewContextMoved,
+  type StreetViewContext,
+} from "../../lib/streetview-context";
+import {
   broadcastMapFollow,
   broadcastStrokes,
   ensureMapBridgeInstalled,
@@ -19,7 +24,23 @@ const URL_POLL_MS = 250;
 /** Если live-bridge давал данные недавно — URL не трогаем (bridge точнее). */
 const LIVE_FRESH_MS = 1500;
 
+export function getStreetViewContext(host: DrawingOverlayHost): StreetViewContext | null {
+  return host.streetViewContext ?? readStreetViewContext();
+}
+
+export function syncStreetViewContext(host: DrawingOverlayHost): boolean {
+  const next = readStreetViewContext();
+  if (!streetViewContextMoved(host.streetViewContext, next)) {
+    return false;
+  }
+  host.streetViewContext = next;
+  return true;
+}
+
 export function getViewportMap(host: DrawingOverlayHost): MapContext | null {
+  if (host.viewportMode === "streetview") {
+    return null;
+  }
   let base = host.mapContext ?? readMapContext();
   if (!base) {
     return null;
@@ -47,6 +68,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
 
   const unbind = installLiveMapProbe(
     (map) => {
+      if (host.viewportMode === "streetview") {
+        return;
+      }
       lastLiveAt = Date.now();
       if (host.mapZooming) {
         return;
@@ -63,6 +87,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
       }
     },
     (pan) => {
+      if (host.viewportMode === "streetview") {
+        return;
+      }
       host.panVisual = pan.dx !== 0 || pan.dy !== 0 || pan.dragging ? pan : null;
       host.scheduleRedraw();
     },
@@ -78,6 +105,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
       host.scheduleRedraw();
     },
     (zooming) => {
+      if (host.viewportMode === "streetview") {
+        return;
+      }
       if (host.mapZooming === zooming) {
         return;
       }
@@ -93,6 +123,9 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
       host.scheduleRedraw();
     },
     (zoom) => {
+      if (host.viewportMode === "streetview") {
+        return;
+      }
       if (
         !zoom.anchor ||
         typeof zoom.anchor.lat !== "number" ||
@@ -120,6 +153,12 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   // тогда live-события не приходят. Опрашиваем URL (ll=/z= или @lat,lng,z) —
   // карта обновляет его после pan/zoom, и рисунок «прилипает» к месту.
   const urlPoll = window.setInterval(() => {
+    if (host.viewportMode === "streetview") {
+      if (syncStreetViewContext(host)) {
+        host.scheduleRedraw();
+      }
+      return;
+    }
     if (host.mapZooming) {
       return;
     }
@@ -136,21 +175,47 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
     }
   }, URL_POLL_MS);
 
+  const svPoll = window.setInterval(() => {
+    if (host.viewportMode !== "streetview") {
+      return;
+    }
+    if (syncStreetViewContext(host)) {
+      host.scheduleRedraw();
+    }
+  }, 32);
+
   return () => {
     unbind();
     window.clearInterval(urlPoll);
+    window.clearInterval(svPoll);
   };
 }
 
 export function captureZoom(host: DrawingOverlayHost): number {
+  if (host.viewportMode === "streetview") {
+    const sv = getStreetViewContext(host);
+    return sv?.fov ?? 90;
+  }
   const map = getViewportMap(host);
   return map ? mapZoom(map) : 16;
 }
 
+export function captureFov(host: DrawingOverlayHost): number {
+  const sv = getStreetViewContext(host);
+  return sv?.fov ?? 90;
+}
+
 /** Сериализует завершённые штрихи в гео-объекты для нативного слоя ymaps. */
 export function syncStrokesToBridge(host: DrawingOverlayHost): void {
+  if (host.viewportMode === "streetview") {
+    broadcastStrokes([]);
+    return;
+  }
   const payload: GeoStrokePayload[] = [];
   for (const s of getDisplayStrokes(host)) {
+    if (s.coordSpace === "streetview") {
+      continue;
+    }
     if (s.kind === "brush") {
       payload.push({
         kind: "brush",

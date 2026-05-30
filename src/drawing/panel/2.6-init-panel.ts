@@ -22,6 +22,7 @@ import { syncUndoRedoButtons } from "../handlers/2.6.1-handle-history";
 import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-panel-move";
 import { initJourneyCloudSync } from "../inc/journey-cloud-sync";
 import { applyJourneyDeepLink, initJourneyDeepLink } from "../inc/journey-deep-link";
+import { initPanelViewportMode } from "../inc/panel-viewport-mode";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
@@ -90,5 +91,6 @@ export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   host.syncMapFollow();
   initJourneyCloudSync(host);
   initJourneyDeepLink(host);
+  initPanelViewportMode(host);
   await applyJourneyDeepLink(host);
 }

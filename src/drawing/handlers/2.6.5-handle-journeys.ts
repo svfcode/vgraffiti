@@ -6,14 +6,19 @@ import {
   shiftStoredStrokes,
 } from "../inc/journey-geo";
 import {
-  createDefaultJourneyName,
+  createDefaultSessionName,
   generateJourneyId,
+  inferSessionMode,
   loadJourneys,
   loadVisibleJourneyIds,
+  markJourneySyncPending,
+  queueDeletedJourneyId,
+  removeJourneyById,
   saveVisibleJourneyIds,
   upsertJourney,
   type SavedJourney,
 } from "../inc/journey-storage";
+import { scheduleJourneyCloudSync } from "../inc/journey-cloud-sync";
 
 export async function initJourneyStorage(host: DrawingOverlayHost): Promise<void> {
   host.savedJourneys = await loadJourneys();
@@ -23,7 +28,7 @@ export async function initJourneyStorage(host: DrawingOverlayHost): Promise<void
 export function initActiveJourney(host: DrawingOverlayHost): void {
   host.activeJourney = {
     id: generateJourneyId(),
-    name: createDefaultJourneyName(),
+    name: createDefaultSessionName(host.viewportMode),
     createdAt: Date.now(),
   };
   setJourneyBaseline(host);
@@ -56,7 +61,8 @@ export function isJourneyDirty(host: DrawingOverlayHost): boolean {
 }
 
 function unsavedActiveLabel(host: DrawingOverlayHost): string {
-  return isJourneyDirty(host) ? "Новое путешествие *" : "Новое путешествие";
+  const base = host.viewportMode === "streetview" ? "Новая прогулка" : "Новое путешествие";
+  return isJourneyDirty(host) ? `${base} *` : base;
 }
 
 function activeDisplayName(host: DrawingOverlayHost): string {
@@ -65,7 +71,8 @@ function activeDisplayName(host: DrawingOverlayHost): string {
   }
   const saved = host.savedJourneys.some((j) => j.id === host.activeJourney!.id);
   if (saved) {
-    const name = host.activeJourney.name.trim() || createDefaultJourneyName();
+    const name =
+      host.activeJourney.name.trim() || createDefaultSessionName(host.viewportMode);
     return isJourneyDirty(host) ? `${name} *` : name;
   }
   return unsavedActiveLabel(host);
@@ -296,7 +303,7 @@ function createJourneyIconBtn(
   title: string,
   glyph: string,
   journeyId: string,
-  action: "edit" | "nudge" | "locate" | "visible",
+  action: "edit" | "nudge" | "locate" | "visible" | "delete",
   html?: string,
 ): HTMLButtonElement {
   const btn = document.createElement("button");
@@ -314,27 +321,43 @@ function createJourneyIconBtn(
   return btn;
 }
 
+function journeysForList(host: DrawingOverlayHost): SavedJourney[] {
+  const mode = host.viewportMode === "streetview" ? "streetview" : "map";
+  return host.savedJourneys.filter((j) => inferSessionMode(j) === mode);
+}
+
 function refreshJourneyList(host: DrawingOverlayHost): void {
   const list = host.journeyListEl;
   list.replaceChildren();
   const activeId = host.activeJourney?.id;
-  const journeys = host.savedJourneys;
+  const isSv = host.viewportMode === "streetview";
+  const journeys = journeysForList(host);
 
   const summary = host.journeyWrap.querySelector<HTMLElement>("#vgf-journey-saved-summary");
   if (summary) {
-    const visibleCount = journeys.filter(
-      (j) => j.id === activeId || host.selectedJourneyIds.has(j.id),
-    ).length;
-    summary.textContent =
-      journeys.length > 0
-        ? `Сохранённые на карте (${visibleCount}/${journeys.length})`
-        : "Сохранённые на карте";
+    if (isSv) {
+      summary.textContent =
+        journeys.length > 0
+          ? `Сохранённые прогулки (${journeys.length})`
+          : "Сохранённые прогулки";
+    } else {
+      const totalMap = host.savedJourneys.filter((j) => inferSessionMode(j) === "map").length;
+      const visibleCount = journeys.filter(
+        (j) => j.id === activeId || host.selectedJourneyIds.has(j.id),
+      ).length;
+      summary.textContent =
+        journeys.length > 0
+          ? `Сохранённые на карте (${visibleCount}/${totalMap})`
+          : "Сохранённые на карте";
+    }
   }
 
   if (journeys.length === 0) {
     const empty = document.createElement("p");
     empty.className = "journey-empty";
-    empty.textContent = "Сохраните прогулку — она появится здесь";
+    empty.textContent = isSv
+      ? "Нет сохранённых прогулок. Сохраните текущую — она появится в списке."
+      : "Сохраните путешествие — оно появится здесь";
     list.appendChild(empty);
     return;
   }
@@ -342,7 +365,7 @@ function refreshJourneyList(host: DrawingOverlayHost): void {
   for (const j of journeys) {
     const isActive = j.id === activeId;
     const isVisible = isActive || host.selectedJourneyIds.has(j.id);
-    const nudgeOpen = isActive && host.journeyNudgeOpen;
+    const nudgeOpen = isActive && host.journeyNudgeOpen && !isSv;
 
     const row = document.createElement("div");
     row.className = "journey-item";
@@ -365,44 +388,58 @@ function refreshJourneyList(host: DrawingOverlayHost): void {
 
     const edit = createJourneyIconBtn(
       "journey-item-icon journey-item-edit",
-      "Редактировать это путешествие",
+      isSv ? "Открыть эту прогулку" : "Редактировать это путешествие",
       "✎",
       j.id,
       "edit",
     );
-    const nudge = createJourneyIconBtn(
-      "journey-item-icon journey-item-nudge",
-      "Сдвиг рисунка",
-      "",
-      j.id,
-      "nudge",
-      NUDGE_PAD_ICON,
-    );
-    if (nudgeOpen) {
-      nudge.classList.add("on");
-    }
-    const locate = createJourneyIconBtn(
-      "journey-item-icon journey-item-locate",
-      "Показать на карте",
-      "◎",
-      j.id,
-      "locate",
-    );
-    const visible = createJourneyIconBtn(
-      "journey-item-icon journey-item-visible",
-      isActive ? "Активное путешествие всегда на карте" : "Показать на карте",
-      "👁",
-      j.id,
-      "visible",
-    );
-    if (isVisible) {
-      visible.classList.add("on");
-    }
-    if (isActive) {
-      visible.disabled = true;
+
+    actions.append(edit);
+
+    if (!isSv) {
+      const nudge = createJourneyIconBtn(
+        "journey-item-icon journey-item-nudge",
+        "Сдвиг рисунка",
+        "",
+        j.id,
+        "nudge",
+        NUDGE_PAD_ICON,
+      );
+      if (nudgeOpen) {
+        nudge.classList.add("on");
+      }
+      const locate = createJourneyIconBtn(
+        "journey-item-icon journey-item-locate",
+        "Показать на карте",
+        "◎",
+        j.id,
+        "locate",
+      );
+      const visible = createJourneyIconBtn(
+        "journey-item-icon journey-item-visible",
+        isActive ? "Активное путешествие всегда на карте" : "Показать на карте",
+        "👁",
+        j.id,
+        "visible",
+      );
+      if (isVisible) {
+        visible.classList.add("on");
+      }
+      if (isActive) {
+        visible.disabled = true;
+      }
+      actions.append(nudge, locate, visible);
     }
 
-    actions.append(edit, nudge, locate, visible);
+    const del = createJourneyIconBtn(
+      "journey-item-icon journey-item-delete",
+      isSv ? "Удалить прогулку" : "Удалить путешествие",
+      "🗑",
+      j.id,
+      "delete",
+    );
+    actions.append(del);
+
     row.append(check, name, actions);
     list.appendChild(row);
   }
@@ -432,12 +469,18 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
     return;
   }
   const now = Date.now();
+  const prior = host.savedJourneys.find((j) => j.id === host.activeJourney!.id);
+  const sessionMode =
+    host.viewportMode === "streetview"
+      ? "streetview"
+      : (prior?.sessionMode ?? "map");
   const journey: SavedJourney = {
     id: host.activeJourney.id,
-    name: host.activeJourney.name.trim() || createDefaultJourneyName(),
+    name: host.activeJourney.name.trim() || createDefaultSessionName(host.viewportMode),
     strokes: cloneStrokes(host.strokes),
     createdAt: host.activeJourney.createdAt,
     updatedAt: now,
+    sessionMode,
   };
   host.activeJourney.name = journey.name;
   host.journeyNameEl.value = journey.name;
@@ -455,6 +498,43 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
     btn.textContent = prev;
     btn.disabled = false;
   }, 1200);
+}
+
+async function deleteSavedJourney(host: DrawingOverlayHost, journeyId: string): Promise<void> {
+  const journey = host.savedJourneys.find((j) => j.id === journeyId);
+  if (!journey) {
+    return;
+  }
+  const label = host.viewportMode === "streetview" ? "прогулку" : "путешествие";
+  const msg = `Удалить ${label} «${journey.name}»?\n\nНа сайте она попадёт в корзину на 30 дней — там можно восстановить.`;
+  if (!window.confirm(msg)) {
+    return;
+  }
+
+  const wasActive = host.activeJourney?.id === journeyId;
+  if (wasActive && isJourneyDirty(host)) {
+    if (!window.confirm("Есть несохранённые изменения. Всё равно удалить?")) {
+      return;
+    }
+  }
+
+  closeJourneyNudge(host);
+  await removeJourneyById(journeyId);
+  host.savedJourneys = await loadJourneys();
+  host.selectedJourneyIds.delete(journeyId);
+  await saveVisibleJourneyIds([...host.selectedJourneyIds]);
+  await queueDeletedJourneyId(journeyId);
+
+  if (wasActive) {
+    startNewActiveJourney(host);
+  } else {
+    refreshJourneyList(host);
+    host.syncStrokesToBridge();
+    host.scheduleRedraw();
+  }
+
+  await markJourneySyncPending();
+  scheduleJourneyCloudSync(host, true);
 }
 
 async function handleJourneyListAction(
@@ -475,6 +555,9 @@ async function handleJourneyListAction(
     return;
   }
   if (action === "nudge") {
+    if (host.viewportMode === "streetview") {
+      return;
+    }
     const wasActive = host.activeJourney?.id === journeyId;
     if (!wasActive) {
       const ok = await switchToJourneyId(host, journeyId);
@@ -491,6 +574,10 @@ async function handleJourneyListAction(
     } else {
       openJourneyNudge(host);
     }
+    return;
+  }
+  if (action === "delete") {
+    await deleteSavedJourney(host, journeyId);
   }
 }
 

@@ -10,7 +10,7 @@ function shiftLatLng(lat: number, lng: number, dxPx: number, dyPx: number, zoom:
   return [ll.lat, ll.lng];
 }
 
-/** Сдвигает все точки штрихов на dx/dy пикселей (Web Mercator при zoom). */
+/** Сдвигает geo-штрихи (Street View не трогаем). */
 export function shiftStoredStrokes(
   strokes: StoredStroke[],
   dxPx: number,
@@ -19,6 +19,9 @@ export function shiftStoredStrokes(
 ): void {
   const z = mapZoom(map);
   for (const s of strokes) {
+    if (s.coordSpace === "streetview") {
+      continue;
+    }
     if (s.kind === "brush" || s.kind === "eraser") {
       for (const p of s.points) {
         const [lat, lng] = shiftLatLng(p[0], p[1], dxPx, dyPx, z);
@@ -55,6 +58,9 @@ export function getStrokesGeoCenter(strokes: StoredStroke[]): { lat: number; lng
   let sumLng = 0;
   let n = 0;
   for (const s of strokes) {
+    if (s.coordSpace === "streetview") {
+      continue;
+    }
     if (s.kind === "brush" || s.kind === "eraser") {
       for (const p of s.points) {
         sumLat += p[0];

@@ -1,5 +1,7 @@
 import type { StrokePoint } from "./inc/stroke";
 import type { MapContext } from "../lib/map-context";
+import type { StreetViewContext } from "../lib/streetview-context";
+import type { ViewportMode } from "../lib/viewport-mode";
 import type { SavedJourney } from "./inc/journey-storage";
 
 export const Z_OVERLAY = 2147483000;
@@ -39,29 +41,93 @@ export const TOOL_CYCLE_ORDER: readonly ToolId[] = ["brush", "eraser", "arrow", 
 /** Точка штриха в географических координатах: [lat, lng, pressure]. */
 export type GeoPoint = [lat: number, lng: number, pressure: number];
 
+/** Точка штриха в Street View: [heading, pitch, pressure]. */
+export type ViewPoint = [heading: number, pitch: number, pressure: number];
+
+type GeoBrushStroke = {
+  kind: "brush";
+  coordSpace?: "geo";
+  points: GeoPoint[];
+  color: string;
+  size: number;
+  zoom: number;
+};
+type SvBrushStroke = {
+  kind: "brush";
+  coordSpace: "streetview";
+  points: ViewPoint[];
+  color: string;
+  size: number;
+  fov: number;
+};
+type GeoEraserStroke = {
+  kind: "eraser";
+  coordSpace?: "geo";
+  points: GeoPoint[];
+  size: number;
+  zoom: number;
+};
+type SvEraserStroke = {
+  kind: "eraser";
+  coordSpace: "streetview";
+  points: ViewPoint[];
+  size: number;
+  fov: number;
+};
+type GeoArrowStroke = {
+  kind: "arrow";
+  coordSpace?: "geo";
+  lat0: number;
+  lng0: number;
+  lat1: number;
+  lng1: number;
+  color: string;
+  lw: number;
+  zoom: number;
+};
+type SvArrowStroke = {
+  kind: "arrow";
+  coordSpace: "streetview";
+  h0: number;
+  p0: number;
+  h1: number;
+  p1: number;
+  color: string;
+  lw: number;
+  fov: number;
+};
+type GeoSquareStroke = {
+  kind: "square";
+  coordSpace?: "geo";
+  lat0: number;
+  lng0: number;
+  lat1: number;
+  lng1: number;
+  color: string;
+  lw: number;
+  zoom: number;
+};
+type SvSquareStroke = {
+  kind: "square";
+  coordSpace: "streetview";
+  h0: number;
+  p0: number;
+  h1: number;
+  p1: number;
+  color: string;
+  lw: number;
+  fov: number;
+};
+
 export type StoredStroke =
-  | { kind: "brush"; points: GeoPoint[]; color: string; size: number; zoom: number }
-  | { kind: "eraser"; points: GeoPoint[]; size: number; zoom: number }
-  | {
-      kind: "arrow";
-      lat0: number;
-      lng0: number;
-      lat1: number;
-      lng1: number;
-      color: string;
-      lw: number;
-      zoom: number;
-    }
-  | {
-      kind: "square";
-      lat0: number;
-      lng0: number;
-      lat1: number;
-      lng1: number;
-      color: string;
-      lw: number;
-      zoom: number;
-    };
+  | GeoBrushStroke
+  | SvBrushStroke
+  | GeoEraserStroke
+  | SvEraserStroke
+  | GeoArrowStroke
+  | SvArrowStroke
+  | GeoSquareStroke
+  | SvSquareStroke;
 
 export type CurrentGesture =
   | { tool: "brush"; points: StrokePoint[] }
@@ -147,6 +213,8 @@ export interface DrawingOverlayHost extends PanelElements {
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
   journeyNudgeOpen: boolean;
+  viewportMode: ViewportMode;
+  streetViewContext: StreetViewContext | null;
   readonly canvas: HTMLCanvasElement;
   readonly sizeCursorEl: HTMLDivElement;
   readonly bar: HTMLDivElement;

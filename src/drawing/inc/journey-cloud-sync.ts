@@ -11,6 +11,8 @@ import {
   syncJourneyPanel,
 } from "../handlers/2.6.5-handle-journeys";
 import {
+  clearDeletedJourneyIds,
+  loadDeletedJourneyIds,
   loadJourneySyncMeta,
   loadJourneys,
   loadVisibleJourneyIds,
@@ -18,6 +20,7 @@ import {
   saveJourneySyncMeta,
   saveJourneys,
   saveVisibleJourneyIds,
+  withSessionMode,
   type SavedJourney,
 } from "./journey-storage";
 
@@ -36,16 +39,18 @@ function parseJourneyList(raw: unknown): SavedJourney[] {
   if (!Array.isArray(raw)) {
     return [];
   }
-  return raw.filter(
-    (j): j is SavedJourney =>
-      !!j &&
-      typeof j === "object" &&
-      typeof (j as SavedJourney).id === "string" &&
-      typeof (j as SavedJourney).name === "string" &&
-      Array.isArray((j as SavedJourney).strokes) &&
-      typeof (j as SavedJourney).createdAt === "number" &&
-      typeof (j as SavedJourney).updatedAt === "number",
-  );
+  return raw
+    .filter(
+      (j): j is SavedJourney =>
+        !!j &&
+        typeof j === "object" &&
+        typeof (j as SavedJourney).id === "string" &&
+        typeof (j as SavedJourney).name === "string" &&
+        Array.isArray((j as SavedJourney).strokes) &&
+        typeof (j as SavedJourney).createdAt === "number" &&
+        typeof (j as SavedJourney).updatedAt === "number",
+    )
+    .map(withSessionMode);
 }
 
 function cloudTitle(state: CloudSyncUiState, error: string | null, email: string | null): string {
@@ -170,10 +175,15 @@ export async function runJourneyCloudSync(host: DrawingOverlayHost, force = fals
   updateCloudSyncUi(host, "syncing", { email: session.email });
 
   try {
-    const [journeys, visibleIds] = await Promise.all([loadJourneys(), loadVisibleJourneyIds()]);
+    const [journeys, visibleIds, deletedIds] = await Promise.all([
+      loadJourneys(),
+      loadVisibleJourneyIds(),
+      loadDeletedJourneyIds(),
+    ]);
     const result = await bgSyncJourneys({
       journeys,
       visible_client_ids: visibleIds,
+      deleted_client_ids: deletedIds,
     });
 
     if (!result.ok) {
@@ -189,6 +199,10 @@ export async function runJourneyCloudSync(host: DrawingOverlayHost, force = fals
 
     if (result.data) {
       await applySyncResponse(host, result.data);
+    }
+
+    if (deletedIds.length > 0) {
+      await clearDeletedJourneyIds(deletedIds);
     }
 
     await saveJourneySyncMeta({
@@ -254,7 +268,7 @@ export function initJourneyCloudSync(host: DrawingOverlayHost): () => void {
       scheduleJourneyCloudSync(boundHost);
       return;
     }
-    if (!applyingRemote && !syncInFlight && (changes.journeys || changes.journeyVisible)) {
+    if (!applyingRemote && !syncInFlight && (changes.journeys || changes.journeyVisible || changes.journeyDeletedQueue)) {
       void markJourneySyncPending().then(() => refreshCloudSyncUi(boundHost!));
       scheduleJourneyCloudSync(boundHost);
     }

@@ -1,4 +1,6 @@
 import { readMapContext, type MapContext } from "../lib/map-context";
+import { readStreetViewContext, type StreetViewContext } from "../lib/streetview-context";
+import { detectViewportMode, type ViewportMode } from "../lib/viewport-mode";
 import { createShadowDom } from "./2.2-create-shadow-dom";
 import { createCanvas } from "./canvas/2.5-create-canvas";
 import { initPanel, queryPanelElements } from "./panel/2.6-init-panel";
@@ -99,6 +101,8 @@ export class DrawingOverlay implements DrawingOverlayHost {
   savedJourneys: SavedJourney[] = [];
   selectedJourneyIds = new Set<string>();
   journeyNudgeOpen = false;
+  viewportMode: ViewportMode = detectViewportMode();
+  streetViewContext: StreetViewContext | null = readStreetViewContext();
   activeTool: ToolId = "brush";
   uiMode: UiMode = readMapContext() ? "nav" : "draw";
   fgColor = "#000000";

@@ -1,6 +1,7 @@
 import { drawArrow, drawSquareStroke } from "./inc/shapes";
 import { projectStoredStroke } from "./inc/geo-stroke";
-import { getViewportMap } from "./inc/map-binding";
+import { projectStreetViewStroke } from "./inc/sv-stroke";
+import { getStreetViewContext, getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
@@ -20,10 +21,19 @@ export function redraw(host: DrawingOverlayHost): void {
   c.clearRect(0, 0, w, h);
 
   const map = getViewportMap(host);
+  const sv = host.viewportMode === "streetview" ? getStreetViewContext(host) : null;
   const frame = getMapViewportFrame();
-  if (map && !host.mapNativeRender) {
+  if (!host.mapNativeRender) {
     for (const s of getDisplayStrokes(host)) {
-      const projected = projectStoredStroke(s, map, frame);
+      const projected =
+        s.coordSpace === "streetview" && sv
+          ? projectStreetViewStroke(s, sv, frame)
+          : map
+            ? projectStoredStroke(s, map, frame)
+            : null;
+      if (!projected) {
+        continue;
+      }
       if (projected.kind === "brush") {
         renderStroke(c, projected.points, { color: projected.color, size: projected.size });
       } else if (projected.kind === "eraser") {

@@ -53,6 +53,14 @@ export function runMapBridge(): void {
   let panExpected: BridgeMap | null = null;
   let awaitingMove = false;
 
+  function isStreetViewPage(): boolean {
+    try {
+      return /,3a,/i.test(location.href) || !!document.querySelector(".widget-scene");
+    } catch {
+      return false;
+    }
+  }
+
   // Нативный слой ymaps (вариант A): завершённые штрихи как гео-объекты.
   let currentMap: any = null;
   let myCollection: any = null;
@@ -860,7 +868,7 @@ export function runMapBridge(): void {
   window.addEventListener(
     "pointerdown",
     (e: PointerEvent) => {
-      if (!followActive || e.button !== 0 || isOverlayUi(e)) {
+      if (!followActive || e.button !== 0 || isOverlayUi(e) || isStreetViewPage()) {
         return;
       }
       dragging = true;
@@ -883,7 +891,7 @@ export function runMapBridge(): void {
   window.addEventListener(
     "pointermove",
     (e: PointerEvent) => {
-      if (!followActive || !dragging || isOverlayUi(e)) {
+      if (!followActive || !dragging || isOverlayUi(e) || isStreetViewPage()) {
         return;
       }
       let ddx = 0;
@@ -961,7 +969,7 @@ export function runMapBridge(): void {
     "wheel",
     (e: Event) => {
       const we = e as WheelEvent;
-      if (!followActive || isOverlayUi(e)) {
+      if (!followActive || isOverlayUi(e) || isStreetViewPage()) {
         return;
       }
       markZoom(undefined, we.clientX, we.clientY);

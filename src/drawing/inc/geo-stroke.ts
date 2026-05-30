@@ -47,6 +47,9 @@ export function geoPointsToScreen(
 }
 
 export function scaledStrokeSize(stroke: StoredStroke, map: MapContext): number {
+  if (stroke.coordSpace === "streetview") {
+    return stroke.kind === "eraser" || stroke.kind === "brush" ? stroke.size : stroke.lw;
+  }
   const z = mapZoom(map);
   if (stroke.kind === "brush") {
     return strokeSizeAtZoom(stroke.size, stroke.zoom, z);
@@ -66,6 +69,9 @@ export function projectStoredStroke(
   | { kind: "eraser"; points: StrokePoint[]; size: number }
   | { kind: "arrow"; x0: number; y0: number; x1: number; y1: number; color: string; lw: number }
   | { kind: "square"; x0: number; y0: number; x1: number; y1: number; color: string; lw: number } {
+  if (stroke.coordSpace === "streetview") {
+    throw new Error("projectStoredStroke: use projectStreetViewStroke for streetview");
+  }
   const size = scaledStrokeSize(stroke, map);
   if (stroke.kind === "brush") {
     return {
