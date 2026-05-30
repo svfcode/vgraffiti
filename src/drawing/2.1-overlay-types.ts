@@ -99,9 +99,9 @@ export type JourneyBaseline = {
 
 export type PanelElements = {
   journeyWrap: HTMLDivElement;
-  journeyActiveSelect: HTMLSelectElement;
+  journeyActiveTitleEl: HTMLDivElement;
+  journeyNudgeWrap: HTMLDivElement;
   journeyNewBtn: HTMLButtonElement;
-  journeyDirtyMark: HTMLSpanElement;
   journeyNameEl: HTMLInputElement;
   journeySaveBtn: HTMLButtonElement;
   journeyListEl: HTMLDivElement;
@@ -145,6 +145,7 @@ export interface DrawingOverlayHost extends PanelElements {
   journeyBaseline: JourneyBaseline | null;
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
+  journeyNudgeOpen: boolean;
   readonly canvas: HTMLCanvasElement;
   readonly sizeCursorEl: HTMLDivElement;
   readonly bar: HTMLDivElement;

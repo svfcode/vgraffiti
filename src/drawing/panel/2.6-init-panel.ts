@@ -24,9 +24,9 @@ import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-pa
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
     journeyWrap: bar.querySelector<HTMLDivElement>("#vgf-journey-wrap")!,
-    journeyActiveSelect: bar.querySelector<HTMLSelectElement>("#vgf-journey-active")!,
+    journeyActiveTitleEl: bar.querySelector<HTMLDivElement>("#vgf-journey-active-title")!,
+    journeyNudgeWrap: bar.querySelector<HTMLDivElement>("#vgf-journey-nudge")!,
     journeyNewBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-new")!,
-    journeyDirtyMark: bar.querySelector<HTMLSpanElement>("#vgf-journey-dirty")!,
     journeyNameEl: bar.querySelector<HTMLInputElement>("#vgf-journey-name")!,
     journeySaveBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-save")!,
     journeyListEl: bar.querySelector<HTMLDivElement>("#vgf-journey-list")!,

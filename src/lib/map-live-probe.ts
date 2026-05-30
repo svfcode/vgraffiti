@@ -9,6 +9,7 @@ import {
   LIVE_MSG,
   PAN_VISUAL_MSG,
   RENDER_MODE_MSG,
+  SET_CENTER_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
   ZOOM_VISUAL_MSG,
@@ -164,6 +165,23 @@ export function broadcastMapFollow(active: boolean, map: MapContext | null): voi
       type: FOLLOW_MSG,
       active,
       map,
+    },
+    "*",
+  );
+}
+
+/** Переносит центр карты к координатам рисунка. */
+export function broadcastMapCenter(lat: number, lng: number, zoom?: number): void {
+  const detail = {
+    lat,
+    lng,
+    ...(zoom != null && zoom > 0 ? { zoom } : {}),
+  };
+  document.dispatchEvent(new CustomEvent(SET_CENTER_MSG, { detail }));
+  window.postMessage(
+    {
+      type: SET_CENTER_MSG,
+      ...detail,
     },
     "*",
   );

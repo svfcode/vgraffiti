@@ -7,35 +7,41 @@
         Прозрачность панели
         <input type="range" id="vgf-panel-opacity" min="25" max="100" value="100" step="5" />
       </label>
+      <button type="button" id="vgf-journey-new" class="more-journey-new">Новое путешествие</button>
       <button type="button" id="vgf-clear" title="Очистить рисунок">Очистить</button>
     </div>
   </details>
 </div>
-<div class="history-row">
-  <button type="button" class="hist-btn" id="vgf-undo" title="Отменить (Ctrl+Z)">↶</button>
-  <button type="button" class="hist-btn" id="vgf-redo" title="Повторить (Ctrl+Shift+Z)">↷</button>
-</div>
+<div class="journey-active-title" id="vgf-journey-active-title" title=""></div>
 <div class="mode-row">
   <button type="button" class="mode-btn" data-mode="nav" title="Навигация по карте (pan/zoom)">Нав</button>
   <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay">Рис</button>
 </div>
 <div class="journey-row" id="vgf-journey-wrap">
-  <label class="journey-label" for="vgf-journey-active">Редактирую</label>
-  <div class="journey-active-row">
-    <select id="vgf-journey-active" class="journey-active-select" title="Активное путешествие для редактирования"></select>
-    <button type="button" id="vgf-journey-new" class="journey-new-btn" title="Новое путешествие">+</button>
-  </div>
-  <label class="journey-label journey-name-label" for="vgf-journey-name">
-    Название<span class="journey-dirty-mark" id="vgf-journey-dirty" hidden> *</span>
-  </label>
+  <label class="journey-label" for="vgf-journey-name">Название</label>
   <input type="text" id="vgf-journey-name" class="journey-name" autocomplete="off" spellcheck="false" />
   <button type="button" class="journey-save-btn" id="vgf-journey-save" title="Сохранить прогулку в расширении">Сохранить</button>
   <details class="journey-saved-pick" id="vgf-journey-saved-pick">
     <summary class="journey-saved-summary" id="vgf-journey-saved-summary">Сохранённые на карте</summary>
     <div class="journey-list" id="vgf-journey-list" role="group" aria-label="Сохранённые прогулки на карте"></div>
+    <div class="journey-nudge" id="vgf-journey-nudge" hidden>
+      <span class="journey-nudge-label">Сдвиг рисунка</span>
+      <div class="journey-nudge-pad" role="group" aria-label="Сдвиг рисунка стрелками">
+        <button type="button" class="journey-nudge-btn nudge-up" data-nudge="up" title="Сдвинуть вверх">↑</button>
+        <button type="button" class="journey-nudge-btn nudge-left" data-nudge="left" title="Сдвинуть влево">←</button>
+        <span class="journey-nudge-hub" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="1.75" fill="currentColor"/><path d="M8 2.5V5.5M8 10.5V13.5M2.5 8H5.5M10.5 8H13.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/><path d="M8 2.5L6.2 4.8M8 2.5L9.8 4.8M13.5 8L11.2 9.8M13.5 8L11.2 6.2M8 13.5L6.2 11.2M8 13.5L9.8 11.2M2.5 8L4.8 9.8M2.5 8L4.8 6.2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></span>
+        <button type="button" class="journey-nudge-btn nudge-right" data-nudge="right" title="Сдвинуть вправо">→</button>
+        <button type="button" class="journey-nudge-btn nudge-down" data-nudge="down" title="Сдвинуть вниз">↓</button>
+      </div>
+    </div>
   </details>
 </div>
-<div class="tools">
+<div class="tools-section">
+  <div class="history-row">
+    <button type="button" class="hist-btn" id="vgf-undo" title="Отменить (Ctrl+Z)">↶</button>
+    <button type="button" class="hist-btn" id="vgf-redo" title="Повторить (Ctrl+Shift+Z)">↷</button>
+  </div>
+  <div class="tools">
   <button type="button" class="tool on" data-tool="brush" title="Кисть"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37-1.34-1.34a1 1 0 0 0-1.41 0L9 12.25 11.75 15l8.96-8.96a1 1 0 0 0 0-1.41z"/></svg></button>
   <button type="button" class="tool" data-tool="eraser" title="Ластик"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.24 3.56l4.2 4.2c.78.78.78 2.05 0 2.83L12 19.07l-6.3-6.3c-.78-.78-.78-2.05 0-2.83l7.07-7.07c.39-.39 1.02-.39 1.41 0l2.12 2.12z"/><path d="M2.81 16.09L7.91 21.19 4.93 19.07 2.81 16.09z"/></svg></button>
   <button type="button" class="tool" data-tool="arrow" title="Стрелка">↗</button>
@@ -63,4 +69,5 @@
 <div id="vgf-swatches-wrap" class="swatches-wrap" hidden data-pick="fg">
   <p class="pick-hint" id="vgf-pick-hint">Передний цвет</p>
   <div class="swatches" id="vgf-swatches"></div>
+</div>
 </div>

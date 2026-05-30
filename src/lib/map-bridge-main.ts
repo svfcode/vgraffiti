@@ -13,6 +13,7 @@ import {
   LIVE_MSG,
   PAN_VISUAL_MSG,
   RENDER_MODE_MSG,
+  SET_CENTER_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
   ZOOM_VISUAL_MSG,
@@ -262,24 +263,41 @@ export function runMapBridge(): void {
   }
 
   function readYmaps2State(inst: any): BridgeMap | null {
-    if (!inst || typeof inst.getCenter !== "function") {
+    if (!inst) {
       return null;
+    }
+    if (typeof inst.getCenter === "function") {
+      try {
+        const c = inst.getCenter();
+        const z = typeof inst.getZoom === "function" ? inst.getZoom() : null;
+        if (c && c.length >= 2) {
+          return {
+            provider: "yandex",
+            lat: c[0],
+            lng: c[1],
+            zoom: z != null && z > 0 ? z : null,
+          };
+        }
+      } catch {
+        /* ignore */
+      }
     }
     try {
-      const c = inst.getCenter();
-      const z = typeof inst.getZoom === "function" ? inst.getZoom() : null;
-      if (!c || c.length < 2) {
-        return null;
+      const loc = inst.location ?? inst._location;
+      const center = loc?.center ?? loc?.value?.center;
+      if (Array.isArray(center) && center.length >= 2) {
+        const zoom = loc?.zoom ?? loc?.value?.zoom ?? null;
+        return {
+          provider: "yandex",
+          lat: center[1],
+          lng: center[0],
+          zoom: typeof zoom === "number" && zoom > 0 ? zoom : null,
+        };
       }
-      return {
-        provider: "yandex",
-        lat: c[0],
-        lng: c[1],
-        zoom: z != null && z > 0 ? z : null,
-      };
     } catch {
-      return null;
+      /* ignore */
     }
+    return null;
   }
 
   function readLiveFromMaps(): BridgeMap | null {
@@ -358,6 +376,165 @@ export function runMapBridge(): void {
       inst.events.add("actionend", push);
       inst.events.add("action", push);
       inst.events.add("actiontick", push);
+    }
+  }
+
+  function findMapInstances(): any[] {
+    const found: any[] = [];
+    const seen = new Set<any>();
+    const add = (inst: any): void => {
+      if (inst && !seen.has(inst)) {
+        seen.add(inst);
+        found.push(inst);
+      }
+    };
+    for (const inst of maps) {
+      add(inst);
+    }
+    if (currentMap) {
+      add(currentMap);
+    }
+    const selectors = [".ymaps-2-1-map", "[class*='ymaps-2-1-map']", "[class*='map-main']"];
+    for (const sel of selectors) {
+      document.querySelectorAll(sel).forEach((el) => {
+        const node = el as any;
+        add(node.__ymaps_map || node._ymaps || node.ymaps);
+      });
+    }
+    return found;
+  }
+
+  function afterMapCenterApplied(lat: number, lng: number, zoom: number | null): void {
+    window.setTimeout(() => {
+      scanDomForMap();
+      const st = currentMap ? readYmaps2State(currentMap) : null;
+      if (st) {
+        anchor = st;
+        panDx = panDy = 0;
+        queueSend(st);
+        return;
+      }
+      anchor = {
+        provider: location.href.includes("google.") ? "google" : "yandex",
+        lat,
+        lng,
+        zoom,
+      };
+      panDx = panDy = 0;
+      queueSend(anchor);
+    }, 320);
+  }
+
+  function trySetMapCenterOnInstance(inst: any, lat: number, lng: number, zoom: number | null): boolean {
+    if (!inst) {
+      return false;
+    }
+    const opts = { duration: 300, checkZoomRange: false };
+    try {
+      if (typeof inst.setLocation === "function") {
+        inst.setLocation({
+          center: [lng, lat],
+          ...(zoom != null ? { zoom } : {}),
+          duration: 300,
+        });
+        currentMap = inst;
+        return true;
+      }
+      if (typeof inst.setCenter === "function") {
+        if (zoom != null) {
+          inst.setCenter([lat, lng], zoom, opts);
+        } else {
+          inst.setCenter([lat, lng], undefined, opts);
+        }
+        currentMap = inst;
+        return true;
+      }
+      if (typeof inst.panTo === "function") {
+        inst.panTo([lat, lng], { duration: 300, flying: true });
+        if (zoom != null && typeof inst.setZoom === "function") {
+          inst.setZoom(zoom, opts);
+        }
+        currentMap = inst;
+        return true;
+      }
+    } catch {
+      /* try next instance */
+    }
+    return false;
+  }
+
+  function applyMapCenterViaUrl(lat: number, lng: number, zoom: number | null): boolean {
+    const href = location.href;
+    if (href.includes("yandex.") && href.includes("/maps")) {
+      const url = new URL(href);
+      url.searchParams.set("ll", `${lng},${lat}`);
+      if (zoom != null) {
+        url.searchParams.set("z", String(Math.round(zoom)));
+      }
+      const next = url.toString();
+      if (next === href) {
+        return false;
+      }
+      history.pushState(null, "", next);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      syncFromMapsOrUrl();
+      return true;
+    }
+    if (href.includes("google.") && href.includes("/maps")) {
+      const zMatch = href.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?)z/i);
+      const zVal = zoom != null ? zoom : zMatch ? parseFloat(zMatch[3]!) : 15;
+      const next = href.replace(
+        /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?)z/i,
+        `@${lat},${lng},${zVal}z`,
+      );
+      if (next === href) {
+        return false;
+      }
+      history.pushState(null, "", next);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      syncFromMapsOrUrl();
+      return true;
+    }
+    return false;
+  }
+
+  function applyMapCenter(lat: number, lng: number, zoom: number | null): void {
+    scanDomForMap();
+    patchYmaps2();
+    patchYmaps3();
+    for (const inst of findMapInstances()) {
+      if (trySetMapCenterOnInstance(inst, lat, lng, zoom)) {
+        afterMapCenterApplied(lat, lng, zoom);
+        return;
+      }
+    }
+    if (applyMapCenterViaUrl(lat, lng, zoom)) {
+      afterMapCenterApplied(lat, lng, zoom);
+    }
+  }
+
+  function patchYmaps3(): void {
+    const boot = (): void => {
+      const y3 = w.ymaps3;
+      if (!y3?.YMap || y3.YMap.__vgfPatched) {
+        return;
+      }
+      const Orig = y3.YMap;
+      function Wrapped(this: unknown, ...args: unknown[]): unknown {
+        const inst = new Orig(...args);
+        register2(inst);
+        return inst;
+      }
+      Wrapped.prototype = Orig.prototype;
+      (Wrapped as any).__vgfPatched = true;
+      y3.YMap = Wrapped;
+      scanDomForMap();
+    };
+    if (w.ymaps3?.YMap) {
+      boot();
+    }
+    if (w.ymaps3?.ready && typeof w.ymaps3.ready.then === "function") {
+      w.ymaps3.ready.then(boot).catch(() => undefined);
     }
   }
 
@@ -623,6 +800,20 @@ export function runMapBridge(): void {
     };
   }
 
+  document.addEventListener(SET_CENTER_MSG, (ev: Event) => {
+    const detail = (ev as CustomEvent<{ lat: number; lng: number; zoom?: number }>).detail;
+    if (!detail) {
+      return;
+    }
+    const lat = detail.lat;
+    const lng = detail.lng;
+    const zoom = typeof detail.zoom === "number" && detail.zoom > 0 ? detail.zoom : null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+    applyMapCenter(lat, lng, zoom);
+  });
+
   window.addEventListener("message", (event: MessageEvent) => {
     if (event.source !== window || !event.data || typeof event.data !== "object") {
       return;
@@ -632,6 +823,16 @@ export function runMapBridge(): void {
       pendingStrokes = Array.isArray(data.strokes) ? data.strokes : [];
       rebuildGeoObjects();
       announceRenderMode(!!currentMap && !!w.ymaps);
+      return;
+    }
+    if (data.type === SET_CENTER_MSG) {
+      const lat = typeof data.lat === "number" ? data.lat : NaN;
+      const lng = typeof data.lng === "number" ? data.lng : NaN;
+      const zoom = typeof data.zoom === "number" && data.zoom > 0 ? data.zoom : null;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+      }
+      applyMapCenter(lat, lng, zoom);
       return;
     }
     if (data.type !== FOLLOW_MSG) {
@@ -800,6 +1001,7 @@ export function runMapBridge(): void {
 
   hookHistory();
   patchYmaps2();
+  patchYmaps3();
   scanDomForMap();
   anchor = parseUrlMap();
   if (anchor) {
@@ -807,6 +1009,7 @@ export function runMapBridge(): void {
   }
   setInterval(() => {
     patchYmaps2();
+    patchYmaps3();
     scanDomForMap();
   }, 2000);
   setInterval(() => {

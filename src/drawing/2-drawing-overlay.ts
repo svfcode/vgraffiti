@@ -86,9 +86,9 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly undoBtn: HTMLButtonElement;
   readonly redoBtn: HTMLButtonElement;
   readonly journeyWrap: HTMLDivElement;
-  readonly journeyActiveSelect: HTMLSelectElement;
+  readonly journeyActiveTitleEl: HTMLDivElement;
+  readonly journeyNudgeWrap: HTMLDivElement;
   readonly journeyNewBtn: HTMLButtonElement;
-  readonly journeyDirtyMark: HTMLSpanElement;
   readonly journeyNameEl: HTMLInputElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
@@ -97,6 +97,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
   journeyBaseline: JourneyBaseline | null = null;
   savedJourneys: SavedJourney[] = [];
   selectedJourneyIds = new Set<string>();
+  journeyNudgeOpen = false;
   activeTool: ToolId = "brush";
   uiMode: UiMode = readMapContext() ? "nav" : "draw";
   fgColor = "#000000";
@@ -151,9 +152,9 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.undoBtn = panel.undoBtn;
     this.redoBtn = panel.redoBtn;
     this.journeyWrap = panel.journeyWrap;
-    this.journeyActiveSelect = panel.journeyActiveSelect;
+    this.journeyActiveTitleEl = panel.journeyActiveTitleEl;
+    this.journeyNudgeWrap = panel.journeyNudgeWrap;
     this.journeyNewBtn = panel.journeyNewBtn;
-    this.journeyDirtyMark = panel.journeyDirtyMark;
     this.journeyNameEl = panel.journeyNameEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;

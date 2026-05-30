@@ -13,6 +13,8 @@ export const RENDER_MODE_MSG = "vgf:mapRenderMode";
 export const ZOOM_STATE_MSG = "vgf:mapZoomState";
 /** Bridge → overlay: визуальный зум (deltaZ + pivot) пока URL z не догнал. */
 export const ZOOM_VISUAL_MSG = "vgf:mapZoomVisual";
+/** Overlay → bridge: перенести центр карты к lat/lng. */
+export const SET_CENTER_MSG = "vgf:mapSetCenter";
 
 /** Гео-штрих для нативного рендера (подмножество StoredStroke без pressure). */
 export type GeoStrokePayload =
@@ -67,4 +69,11 @@ export type FollowMessage = {
   type: typeof FOLLOW_MSG;
   active: boolean;
   map: { provider: string; lat: number; lng: number; zoom?: number } | null;
+};
+
+export type SetCenterMessage = {
+  type: typeof SET_CENTER_MSG;
+  lat: number;
+  lng: number;
+  zoom?: number;
 };
