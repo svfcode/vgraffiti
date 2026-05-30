@@ -79,6 +79,7 @@
 Эндпоинты ниже предполагают **Bearer** (кроме явных исключений в реализации сервера):
 
 - `POST /walks`, `PATCH /walks/{id}` — **мета прогулок** на сервере
+- `POST /journeys/sync` — синхронизация сохранённых vector-прогулок (штрихи в geo)
 - `POST /drawings` (+ файл)
 - `POST /events`
 - `GET /drawings`, `GET /drawings/{id}`

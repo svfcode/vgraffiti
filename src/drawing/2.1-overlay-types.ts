@@ -119,6 +119,7 @@ export type PanelElements = {
   panelOpacityEl: HTMLInputElement;
   moreDetails: HTMLDetailsElement;
   dragHandle: HTMLSpanElement;
+  cloudSyncBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   redoBtn: HTMLButtonElement;
 };

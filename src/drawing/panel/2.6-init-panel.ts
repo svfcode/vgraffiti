@@ -20,6 +20,8 @@ import {
 } from "../handlers/2.6.2-handle-tools";
 import { syncUndoRedoButtons } from "../handlers/2.6.1-handle-history";
 import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-panel-move";
+import { initJourneyCloudSync } from "../inc/journey-cloud-sync";
+import { applyJourneyDeepLink, initJourneyDeepLink } from "../inc/journey-deep-link";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
@@ -44,6 +46,7 @@ export function queryPanelElements(bar: HTMLDivElement): PanelElements {
     panelOpacityEl: bar.querySelector<HTMLInputElement>("#vgf-panel-opacity")!,
     moreDetails: bar.querySelector<HTMLDetailsElement>("#vgf-more")!,
     dragHandle: bar.querySelector<HTMLSpanElement>("#vgf-drag")!,
+    cloudSyncBtn: bar.querySelector<HTMLButtonElement>("#vgf-cloud-sync")!,
     undoBtn: bar.querySelector<HTMLButtonElement>("#vgf-undo")!,
     redoBtn: bar.querySelector<HTMLButtonElement>("#vgf-redo")!,
   };
@@ -85,4 +88,7 @@ export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   syncUndoRedoButtons(host);
   resizeCanvas(host);
   host.syncMapFollow();
+  initJourneyCloudSync(host);
+  initJourneyDeepLink(host);
+  await applyJourneyDeepLink(host);
 }

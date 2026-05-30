@@ -19,6 +19,7 @@ type BgMessage =
   | { type: "api.logout" }
   | { type: "api.uploadDrawing"; imageBase64: string; mimeType: string; meta: Record<string, unknown>; map?: MapContext | null }
   | { type: "api.listDrawingsNearMap"; lat: number; lng: number; mapProvider: string; radius: number; zoom: number | null }
+  | { type: "api.syncJourneys"; journeys: unknown[]; visibleClientIds: string[]; deletedClientIds: string[] }
   | { type: "api.fetchImageDataUrl"; url: string };
 
 const NEED_API_HOST_HINT =
@@ -149,6 +150,39 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
         path: `/drawings?${qs.toString()}`,
         method: "GET",
         auth: "bearer",
+      });
+      if (!r.ok) {
+        return r;
+      }
+      const { status, json, text } = r.data;
+      if (status >= 400) {
+        return {
+          ok: false,
+          status,
+          body: text,
+          error: `HTTP ${status}`,
+        };
+      }
+      return { ok: true, data: json };
+    }
+    case "api.syncJourneys": {
+      const perm = await hasApiOriginPermission();
+      if (!perm.ok) {
+        return perm;
+      }
+      if (!perm.data) {
+        return { ok: false, error: NEED_API_HOST_HINT };
+      }
+      const r = await apiRequest({
+        path: "/journeys/sync",
+        method: "POST",
+        auth: "bearer",
+        idempotencyKey: crypto.randomUUID(),
+        body: {
+          journeys: msg.journeys,
+          visible_client_ids: msg.visibleClientIds,
+          deleted_client_ids: msg.deletedClientIds,
+        },
       });
       if (!r.ok) {
         return r;

@@ -82,6 +82,65 @@ canvas.layer.vgf-hide-cursor {
 .drag-handle:active {
   cursor: grabbing;
 }
+.cloud-sync-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9aa0a6;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.cloud-sync-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8eaed;
+}
+.cloud-sync-btn:disabled {
+  cursor: default;
+  opacity: 0.85;
+}
+.cloud-sync-btn[data-state="idle"] {
+  color: #81c995;
+}
+.cloud-sync-btn[data-state="pending"] {
+  color: #fbbc04;
+}
+.cloud-sync-btn[data-state="error"] {
+  color: #f28b82;
+}
+.cloud-sync-btn[data-state="syncing"] .cloud-sync-icon {
+  animation: cloud-sync-spin 0.9s linear infinite;
+}
+.cloud-sync-btn[data-state="pending"]::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  margin-top: -10px;
+  margin-left: 10px;
+  border-radius: 50%;
+  background: #fbbc04;
+}
+.cloud-sync-btn {
+  position: relative;
+}
+@keyframes cloud-sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.cloud-sync-btn[data-state="guest"] .cloud-arrow,
+.cloud-sync-btn[data-state="no-api"] .cloud-arrow {
+  opacity: 0.35;
+}
 .more {
   margin-left: auto;
   position: relative;

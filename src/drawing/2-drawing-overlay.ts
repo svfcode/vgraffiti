@@ -83,6 +83,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly panelOpacityEl: HTMLInputElement;
   readonly moreDetails: HTMLDetailsElement;
   readonly dragHandle: HTMLSpanElement;
+  readonly cloudSyncBtn: HTMLButtonElement;
   readonly undoBtn: HTMLButtonElement;
   readonly redoBtn: HTMLButtonElement;
   readonly journeyWrap: HTMLDivElement;
@@ -149,6 +150,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.panelOpacityEl = panel.panelOpacityEl;
     this.moreDetails = panel.moreDetails;
     this.dragHandle = panel.dragHandle;
+    this.cloudSyncBtn = panel.cloudSyncBtn;
     this.undoBtn = panel.undoBtn;
     this.redoBtn = panel.redoBtn;
     this.journeyWrap = panel.journeyWrap;

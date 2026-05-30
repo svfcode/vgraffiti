@@ -159,17 +159,27 @@ function confirmDiscardIfDirty(host: DrawingOverlayHost): boolean {
   );
 }
 
-async function switchToJourneyId(host: DrawingOverlayHost, targetId: string): Promise<boolean> {
+export async function switchToJourneyId(
+  host: DrawingOverlayHost,
+  targetId: string,
+  options?: { skipDirtyConfirm?: boolean; locate?: boolean },
+): Promise<boolean> {
   const prevId = host.activeJourney?.id;
   if (!targetId || targetId === prevId) {
+    if (options?.locate && targetId) {
+      locateJourneyById(host, targetId);
+    }
     return true;
   }
-  if (!confirmDiscardIfDirty(host)) {
+  if (!options?.skipDirtyConfirm && !confirmDiscardIfDirty(host)) {
     return false;
   }
   const saved = host.savedJourneys.find((j) => j.id === targetId);
   if (saved) {
     applySavedJourney(host, saved);
+    if (options?.locate) {
+      locateJourneyById(host, targetId);
+    }
     return true;
   }
   return false;
@@ -183,7 +193,7 @@ function strokesForJourneyId(host: DrawingOverlayHost, journeyId: string): Store
   return j ? j.strokes : null;
 }
 
-function locateJourneyById(host: DrawingOverlayHost, journeyId: string): void {
+export function locateJourneyById(host: DrawingOverlayHost, journeyId: string): void {
   const strokes = strokesForJourneyId(host, journeyId);
   if (!strokes || strokes.length === 0) {
     return;

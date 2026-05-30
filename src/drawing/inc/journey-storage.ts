@@ -10,6 +10,7 @@ export type SavedJourney = {
 
 const JOURNEYS_KEY = "journeys";
 const VISIBLE_KEY = "journeyVisible";
+const SYNC_META_KEY = "journeySyncMeta";
 /** Старый ключ в localStorage страницы (разный на каждом домене карт). */
 const LEGACY_JOURNEYS_KEY = "vgraffiti:journeys";
 const LEGACY_VISIBLE_KEY = "vgraffiti:journey-visible";
@@ -116,4 +117,38 @@ export async function loadVisibleJourneyIds(): Promise<string[]> {
 
 export async function saveVisibleJourneyIds(ids: string[]): Promise<void> {
   await storageArea().set({ [VISIBLE_KEY]: ids });
+}
+
+export type JourneySyncMeta = {
+  pending: boolean;
+  lastSyncAt: number | null;
+  lastError: string | null;
+};
+
+export async function loadJourneySyncMeta(): Promise<JourneySyncMeta> {
+  const data = await storageArea().get(SYNC_META_KEY);
+  const raw = data[SYNC_META_KEY];
+  if (!raw || typeof raw !== "object") {
+    return { pending: false, lastSyncAt: null, lastError: null };
+  }
+  const o = raw as Record<string, unknown>;
+  return {
+    pending: !!o.pending,
+    lastSyncAt: typeof o.lastSyncAt === "number" ? o.lastSyncAt : null,
+    lastError: typeof o.lastError === "string" ? o.lastError : null,
+  };
+}
+
+export async function saveJourneySyncMeta(meta: JourneySyncMeta): Promise<void> {
+  await storageArea().set({ [SYNC_META_KEY]: meta });
+}
+
+export async function markJourneySyncPending(): Promise<void> {
+  const prev = await loadJourneySyncMeta();
+  await saveJourneySyncMeta({ ...prev, pending: true, lastError: null });
+}
+
+export async function saveJourneys(journeys: SavedJourney[]): Promise<void> {
+  const list = [...journeys].sort((a, b) => b.updatedAt - a.updatedAt);
+  await storageArea().set({ [JOURNEYS_KEY]: list });
 }
