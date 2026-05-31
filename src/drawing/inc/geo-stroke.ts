@@ -47,7 +47,7 @@ export function geoPointsToScreen(
 }
 
 export function scaledStrokeSize(stroke: StoredStroke, map: MapContext): number {
-  if (stroke.coordSpace === "streetview") {
+  if (stroke.coordSpace === "streetview" || stroke.coordSpace === "viewmemory") {
     return stroke.kind === "eraser" || stroke.kind === "brush" ? stroke.size : stroke.lw;
   }
   const z = mapZoom(map);
@@ -71,6 +71,9 @@ export function projectStoredStroke(
   | { kind: "square"; x0: number; y0: number; x1: number; y1: number; color: string; lw: number } {
   if (stroke.coordSpace === "streetview") {
     throw new Error("projectStoredStroke: use projectStreetViewStroke for streetview");
+  }
+  if (stroke.coordSpace === "viewmemory") {
+    throw new Error("projectStoredStroke: use projectMemorySketchStroke for viewmemory");
   }
   const size = scaledStrokeSize(stroke, map);
   if (stroke.kind === "brush") {

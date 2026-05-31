@@ -23,6 +23,7 @@ import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-pa
 import { initJourneyCloudSync } from "../inc/journey-cloud-sync";
 import { applyJourneyDeepLink, initJourneyDeepLink } from "../inc/journey-deep-link";
 import { initPanelViewportMode } from "../inc/panel-viewport-mode";
+import { bindMemoryPanelEvents, syncMemoryUi } from "../inc/handle-memory";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
@@ -33,6 +34,18 @@ export function queryPanelElements(bar: HTMLDivElement): PanelElements {
     journeyNameEl: bar.querySelector<HTMLInputElement>("#vgf-journey-name")!,
     journeySaveBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-save")!,
     journeyListEl: bar.querySelector<HTMLDivElement>("#vgf-journey-list")!,
+    memoryAddBtn: bar.querySelector<HTMLButtonElement>("#vgf-memory-add")!,
+    memoryStatusEl: bar.querySelector<HTMLDivElement>("#vgf-memory-status")!,
+    memoryListEl: bar.querySelector<HTMLDivElement>("#vgf-memory-list")!,
+    memoryDraftWrap: bar.querySelector<HTMLDivElement>("#vgf-memory-draft")!,
+    envelopeDetailWrap: bar.querySelector<HTMLDivElement>("#vgf-envelope-detail")!,
+    envelopeNoteEl: bar.querySelector<HTMLTextAreaElement>("#vgf-envelope-note")!,
+    envelopeNoteSaveBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-note-save")!,
+    envelopeCloseBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-close")!,
+    envelopeWallBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-wall")!,
+    envelopePutInBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-put-in")!,
+    envelopeUnfoldBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-unfold")!,
+    envelopeFoldBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-fold")!,
     swatchHost: bar.querySelector<HTMLDivElement>("#vgf-swatches")!,
     swatchesWrap: bar.querySelector<HTMLDivElement>("#vgf-swatches-wrap")!,
     pickHintEl: bar.querySelector<HTMLParagraphElement>("#vgf-pick-hint")!,
@@ -74,6 +87,7 @@ export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   bindCanvasEvents(host);
 
   bindJourneyPanelEvents(host);
+  bindMemoryPanelEvents(host);
   initActiveJourney(host);
   await initJourneyStorage(host);
   syncJourneyPanel(host);
@@ -92,5 +106,6 @@ export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   initJourneyCloudSync(host);
   initJourneyDeepLink(host);
   initPanelViewportMode(host);
+  syncMemoryUi(host);
   await applyJourneyDeepLink(host);
 }

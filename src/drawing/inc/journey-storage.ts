@@ -1,4 +1,6 @@
 import type { StoredStroke } from "../2.1-overlay-types";
+import type { MemoryStop } from "./memory-types";
+import { isMemoryStop } from "./memory-types";
 
 export type JourneySessionMode = "map" | "streetview";
 
@@ -6,6 +8,7 @@ export type SavedJourney = {
   id: string;
   name: string;
   strokes: StoredStroke[];
+  memories?: MemoryStop[];
   createdAt: number;
   updatedAt: number;
   sessionMode?: JourneySessionMode;
@@ -39,9 +42,12 @@ export function createDefaultSessionName(mode: "map" | "streetview" = "map"): st
   return mode === "streetview" ? `Прогулка ${dt}` : dt;
 }
 
-export function inferSessionMode(j: Pick<SavedJourney, "name" | "sessionMode">): JourneySessionMode {
+export function inferSessionMode(j: Pick<SavedJourney, "name" | "sessionMode" | "memories">): JourneySessionMode {
   if (j.sessionMode === "streetview" || j.sessionMode === "map") {
     return j.sessionMode;
+  }
+  if (j.memories && j.memories.length > 0) {
+    return "streetview";
   }
   if (j.name.trim().startsWith("Прогулка ")) {
     return "streetview";
@@ -72,7 +78,8 @@ function isSavedJourney(v: unknown): v is SavedJourney {
     Array.isArray(o.strokes) &&
     typeof o.createdAt === "number" &&
     typeof o.updatedAt === "number" &&
-    modeOk
+    modeOk &&
+    (o.memories === undefined || (Array.isArray(o.memories) && o.memories.every(isMemoryStop)))
   );
 }
 

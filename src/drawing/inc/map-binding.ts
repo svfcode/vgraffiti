@@ -213,7 +213,7 @@ export function syncStrokesToBridge(host: DrawingOverlayHost): void {
   }
   const payload: GeoStrokePayload[] = [];
   for (const s of getDisplayStrokes(host)) {
-    if (s.coordSpace === "streetview") {
+    if (s.coordSpace === "streetview" || s.coordSpace === "viewmemory") {
       continue;
     }
     if (s.kind === "brush") {

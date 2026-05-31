@@ -4,6 +4,7 @@ import {
   type ToolId,
   type UiMode,
 } from "../2.1-overlay-types";
+import { cancelWallCanvas, foldWallCanvas } from "../inc/handle-memory";
 
 export function getBrushSize(host: DrawingOverlayHost): number {
   return Number(host.brushSizeEl.value) || 5;
@@ -15,7 +16,7 @@ export function getEraserSize(host: DrawingOverlayHost): number {
 
 export function wantsSizeCursor(host: DrawingOverlayHost): boolean {
   return (
-    host.uiMode === "draw" &&
+    (host.uiMode === "draw" || host.uiMode === "wallCanvas") &&
     (host.activeTool === "brush" || host.activeTool === "eraser")
   );
 }
@@ -94,9 +95,12 @@ export function syncToolButtons(host: DrawingOverlayHost): void {
 
 export function syncModeButtons(host: DrawingOverlayHost): void {
   host.bar.querySelectorAll<HTMLButtonElement>(".mode-btn").forEach((btn) => {
-    btn.classList.toggle("on", btn.dataset.mode === host.uiMode);
+    const mode = btn.dataset.mode as UiMode | undefined;
+    btn.classList.toggle("on", mode === host.uiMode);
   });
   host.canvas.classList.toggle("mode-nav", host.uiMode === "nav");
+  host.canvas.classList.toggle("mode-add-envelope", host.uiMode === "addEnvelope");
+  host.canvas.classList.toggle("mode-wall-place", host.uiMode === "wallCanvasPlace");
   syncCanvasPointerCursor(host);
   if (host.uiMode === "nav") {
     hideSizeCursor(host);
@@ -179,6 +183,18 @@ function onModeClick(host: DrawingOverlayHost, e: MouseEvent): void {
   const m = btn.dataset.mode as UiMode | undefined;
   if (!m) {
     return;
+  }
+  if (host.uiMode === "wallCanvasUnfold") {
+    foldWallCanvas(host);
+  } else if (host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace") {
+    cancelWallCanvas(host);
+  }
+  if (host.uiMode === "addEnvelope") {
+    host.uiMode = "nav";
+    host.syncModeButtons();
+  }
+  if (host.openEnvelopeId && m === "nav") {
+    /* keep envelope panel open in nav */
   }
   host.uiMode = m;
   syncModeButtons(host);

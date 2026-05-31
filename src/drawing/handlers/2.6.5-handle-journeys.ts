@@ -1,5 +1,7 @@
 import { broadcastMapCenter } from "../../lib/map-live-probe";
 import { cloneStrokes, type DrawingOverlayHost, type StoredStroke } from "../2.1-overlay-types";
+import { cloneMemories } from "../inc/memory-types";
+import { syncMemoryUi } from "../inc/handle-memory";
 import {
   getStrokesGeoCenter,
   nudgeDirectionToPixels,
@@ -38,6 +40,10 @@ function strokesEqual(a: StoredStroke[], b: StoredStroke[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function memoriesEqual(a: ReturnType<typeof cloneMemories>, b: ReturnType<typeof cloneMemories>): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export function setJourneyBaseline(host: DrawingOverlayHost): void {
   if (!host.activeJourney) {
     host.journeyBaseline = null;
@@ -46,6 +52,7 @@ export function setJourneyBaseline(host: DrawingOverlayHost): void {
   host.journeyBaseline = {
     name: host.activeJourney.name.trim(),
     strokes: cloneStrokes(host.strokes),
+    memories: cloneMemories(host.memories),
   };
 }
 
@@ -56,6 +63,21 @@ export function isJourneyDirty(host: DrawingOverlayHost): boolean {
   const name = host.activeJourney.name.trim();
   if (name !== host.journeyBaseline.name) {
     return true;
+  }
+  if (host.viewportMode === "streetview") {
+    if (!memoriesEqual(host.memories, host.journeyBaseline.memories)) {
+      return true;
+    }
+    if (host.activeWallCanvas || host.wallCanvasDraftRect) {
+      const baselineMem = host.openEnvelopeId
+        ? host.journeyBaseline.memories.find((m) => m.id === host.openEnvelopeId)
+        : null;
+      const baseStrokes = baselineMem?.wallCanvas?.strokes ?? [];
+      if (!strokesEqual(host.strokes, baseStrokes)) {
+        return true;
+      }
+    }
+    return false;
   }
   return !strokesEqual(host.strokes, host.journeyBaseline.strokes);
 }
@@ -90,8 +112,11 @@ function syncActiveJourneyTitle(host: DrawingOverlayHost): void {
   host.journeyActiveTitleEl.title = fullName;
 }
 
-/** Штрихи для отображения: выбранные сохранённые прогулки + текущая сессия. */
+/** Штрихи для отображения: выбранные сохранённые прогулки + текущая сессия (только карта). */
 export function getDisplayStrokes(host: DrawingOverlayHost): StoredStroke[] {
+  if (host.viewportMode === "streetview") {
+    return [];
+  }
   const out: StoredStroke[] = [];
   const activeId = host.activeJourney?.id;
   for (const id of host.selectedJourneyIds) {
@@ -136,11 +161,18 @@ function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney): voi
     createdAt: journey.createdAt,
   };
   host.strokes.splice(0, host.strokes.length, ...cloneStrokes(journey.strokes));
+  host.memories = cloneMemories(journey.memories ?? []);
+  host.openEnvelopeId = null;
+  host.wallCanvasDraftRect = null;
+  host.activeWallCanvas = null;
+  host.unfoldEnvelopeId = null;
+  host.wallCanvasDrag = null;
   resetJourneyHistory(host);
   setJourneyBaseline(host);
   host.journeyNameEl.value = journey.name;
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
+  syncMemoryUi(host);
   host.syncStrokesToBridge();
   host.scheduleRedraw();
 }
@@ -148,11 +180,27 @@ function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney): voi
 export function startNewActiveJourney(host: DrawingOverlayHost): void {
   initActiveJourney(host);
   host.strokes.length = 0;
+  host.memories = [];
+  host.openEnvelopeId = null;
+  host.wallCanvasDraftRect = null;
+  host.activeWallCanvas = null;
+  host.unfoldEnvelopeId = null;
+  host.wallCanvasDrag = null;
+  if (
+    host.uiMode === "addEnvelope" ||
+    host.uiMode === "wallCanvas" ||
+    host.uiMode === "wallCanvasPlace" ||
+    host.uiMode === "wallCanvasUnfold"
+  ) {
+    host.uiMode = "nav";
+    host.syncModeButtons();
+  }
   resetJourneyHistory(host);
   host.journeyNameEl.value = host.activeJourney!.name;
   closeJourneyNudge(host);
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
+  syncMemoryUi(host);
   host.syncStrokesToBridge();
   host.scheduleRedraw();
 }
@@ -478,6 +526,7 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
     id: host.activeJourney.id,
     name: host.activeJourney.name.trim() || createDefaultSessionName(host.viewportMode),
     strokes: cloneStrokes(host.strokes),
+    memories: cloneMemories(host.memories),
     createdAt: host.activeJourney.createdAt,
     updatedAt: now,
     sessionMode,

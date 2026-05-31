@@ -1,5 +1,17 @@
 import { coalescedOrSelf, pointFromEvent } from "../inc/stroke";
 import { xyCanvas, type DrawingOverlayHost } from "../2.1-overlay-types";
+import {
+  confirmWallCanvasPlace,
+  onEnvelopeCanvasClick,
+  onEnvelopePlacementClick,
+  onWallCanvasPlaceDown,
+  onWallCanvasPlaceMove,
+  onWallCanvasUnfoldDown,
+  onWallCanvasUnfoldMove,
+  onWallCanvasUnfoldUp,
+} from "../inc/handle-memory";
+import { isPointInWallRect } from "../inc/wall-canvas";
+import { getMemoryViewportFrame } from "../inc/view-memory";
 
 export type CanvasElements = {
   canvas: HTMLCanvasElement;
@@ -32,8 +44,8 @@ export function bindCanvasEvents(host: DrawingOverlayHost): void {
   host.canvas.addEventListener("pointermove", (ev) => onCanvasPointerMove(host, ev));
   host.canvas.addEventListener("pointerenter", (ev) => onCanvasPointerEnter(host, ev));
   host.canvas.addEventListener("pointerleave", () => onCanvasPointerLeave(host));
-  host.canvas.addEventListener("pointerup", (ev) => host.finishStroke(ev));
-  host.canvas.addEventListener("pointercancel", (ev) => host.finishStroke(ev));
+  host.canvas.addEventListener("pointerup", (ev) => onCanvasPointerUp(host, ev));
+  host.canvas.addEventListener("pointercancel", (ev) => onCanvasPointerUp(host, ev));
   window.addEventListener("resize", () => resizeCanvas(host));
 }
 
@@ -51,9 +63,50 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 }
 
 function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
-  if (host.uiMode !== "draw" || ev.button !== 0) {
+  if (ev.button !== 0) {
     return;
   }
+  const { x, y } = xyCanvas(ev, host.canvas);
+
+  if (host.uiMode === "addEnvelope") {
+    ev.preventDefault();
+    onEnvelopePlacementClick(host, x, y);
+    return;
+  }
+
+  if (host.uiMode === "nav") {
+    onEnvelopeCanvasClick(host, x, y);
+    return;
+  }
+
+  if (host.uiMode === "wallCanvasUnfold") {
+    if (onWallCanvasUnfoldDown(host, x, y, ev.pointerId)) {
+      ev.preventDefault();
+      host.canvas.setPointerCapture(ev.pointerId);
+    }
+    return;
+  }
+
+  if (host.uiMode === "wallCanvasPlace") {
+    ev.preventDefault();
+    host.isDrawing = true;
+    host.activePointerId = ev.pointerId;
+    host.canvas.setPointerCapture(ev.pointerId);
+    onWallCanvasPlaceDown(host, x, y);
+    return;
+  }
+
+  if (host.uiMode !== "draw" && host.uiMode !== "wallCanvas") {
+    return;
+  }
+
+  if (host.uiMode === "wallCanvas" && host.activeWallCanvas) {
+    const frame = getMemoryViewportFrame();
+    if (!isPointInWallRect(x, y, host.activeWallCanvas, host.canvas, frame)) {
+      return;
+    }
+  }
+
   ev.preventDefault();
   host.isDrawing = true;
   host.activePointerId = ev.pointerId;
@@ -65,7 +118,6 @@ function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
   } else if (host.activeTool === "eraser") {
     host.current = { tool: "eraser", points: [pointFromEvent(ev, host.canvas)] };
   } else {
-    const { x, y } = xyCanvas(ev, host.canvas);
     if (host.activeTool === "arrow") {
       host.current = { tool: "arrow", x0: x, y0: y, x1: x, y1: y };
     } else {
@@ -90,6 +142,18 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
     host.hideSizeCursor();
   }
 
+  const { x, y } = xyCanvas(ev, host.canvas);
+
+  if (host.uiMode === "wallCanvasPlace" && host.wallCanvasDraftRect) {
+    onWallCanvasPlaceMove(host, x, y);
+    return;
+  }
+
+  if (host.wallCanvasDrag && host.uiMode === "wallCanvasUnfold") {
+    onWallCanvasUnfoldMove(host, x, y);
+    return;
+  }
+
   if (!host.isDrawing || !(ev.buttons & 1) || !host.current) {
     return;
   }
@@ -103,11 +167,36 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
       cur.points.push(pointFromEvent(pe, host.canvas));
     }
   } else {
-    const { x, y } = xyCanvas(ev, host.canvas);
     cur.x1 = x;
     cur.y1 = y;
   }
   host.scheduleRedraw();
+}
+
+function onCanvasPointerUp(host: DrawingOverlayHost, ev: PointerEvent): void {
+  if (host.uiMode === "wallCanvasPlace" && host.wallCanvasDraftRect && ev.pointerId === host.activePointerId) {
+    host.isDrawing = false;
+    host.activePointerId = null;
+    try {
+      host.canvas.releasePointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    confirmWallCanvasPlace(host);
+    return;
+  }
+
+  if (host.wallCanvasDrag && ev.pointerId === host.wallCanvasDrag.pointerId) {
+    try {
+      host.canvas.releasePointerCapture(ev.pointerId);
+    } catch {
+      /* ignore */
+    }
+    onWallCanvasUnfoldUp(host);
+    return;
+  }
+
+  host.finishStroke(ev);
 }
 
 function onCanvasPointerEnter(host: DrawingOverlayHost, ev: PointerEvent): void {

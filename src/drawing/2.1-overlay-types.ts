@@ -3,6 +3,7 @@ import type { MapContext } from "../lib/map-context";
 import type { StreetViewContext } from "../lib/streetview-context";
 import type { ViewportMode } from "../lib/viewport-mode";
 import type { SavedJourney } from "./inc/journey-storage";
+import type { MemoryStop, WallCanvas } from "./inc/memory-types";
 
 export const Z_OVERLAY = 2147483000;
 
@@ -34,7 +35,13 @@ export const SWATCHES = [
 ];
 
 export type ToolId = "brush" | "eraser" | "arrow" | "square";
-export type UiMode = "nav" | "draw";
+export type UiMode =
+  | "nav"
+  | "draw"
+  | "addEnvelope"
+  | "wallCanvasPlace"
+  | "wallCanvas"
+  | "wallCanvasUnfold";
 
 export const TOOL_CYCLE_ORDER: readonly ToolId[] = ["brush", "eraser", "arrow", "square"];
 
@@ -119,6 +126,43 @@ type SvSquareStroke = {
   fov: number;
 };
 
+/** Точка эскиза памяти: [u, v, pressure] в anchor-пространстве панорамы. */
+export type MemoryUvPoint = [u: number, v: number, pressure: number];
+
+type VmBrushStroke = {
+  kind: "brush";
+  coordSpace: "viewmemory";
+  points: MemoryUvPoint[];
+  color: string;
+  size: number;
+};
+type VmEraserStroke = {
+  kind: "eraser";
+  coordSpace: "viewmemory";
+  points: MemoryUvPoint[];
+  size: number;
+};
+type VmArrowStroke = {
+  kind: "arrow";
+  coordSpace: "viewmemory";
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
+  color: string;
+  lw: number;
+};
+type VmSquareStroke = {
+  kind: "square";
+  coordSpace: "viewmemory";
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
+  color: string;
+  lw: number;
+};
+
 export type StoredStroke =
   | GeoBrushStroke
   | SvBrushStroke
@@ -127,7 +171,11 @@ export type StoredStroke =
   | GeoArrowStroke
   | SvArrowStroke
   | GeoSquareStroke
-  | SvSquareStroke;
+  | SvSquareStroke
+  | VmBrushStroke
+  | VmEraserStroke
+  | VmArrowStroke
+  | VmSquareStroke;
 
 export type CurrentGesture =
   | { tool: "brush"; points: StrokePoint[] }
@@ -161,6 +209,7 @@ export function isEditableKeyTarget(target: EventTarget | null): boolean {
 export type JourneyBaseline = {
   name: string;
   strokes: StoredStroke[];
+  memories: MemoryStop[];
 };
 
 export type PanelElements = {
@@ -170,6 +219,18 @@ export type PanelElements = {
   journeyNewBtn: HTMLButtonElement;
   journeyNameEl: HTMLInputElement;
   journeySaveBtn: HTMLButtonElement;
+  memoryAddBtn: HTMLButtonElement;
+  memoryStatusEl: HTMLDivElement;
+  memoryListEl: HTMLDivElement;
+  memoryDraftWrap: HTMLDivElement;
+  envelopeDetailWrap: HTMLDivElement;
+  envelopeNoteEl: HTMLTextAreaElement;
+  envelopeNoteSaveBtn: HTMLButtonElement;
+  envelopeCloseBtn: HTMLButtonElement;
+  envelopeWallBtn: HTMLButtonElement;
+  envelopeUnfoldBtn: HTMLButtonElement;
+  envelopeFoldBtn: HTMLButtonElement;
+  envelopePutInBtn: HTMLButtonElement;
   journeyListEl: HTMLDivElement;
   swatchHost: HTMLDivElement;
   swatchesWrap: HTMLDivElement;
@@ -213,6 +274,17 @@ export interface DrawingOverlayHost extends PanelElements {
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
   journeyNudgeOpen: boolean;
+  memories: MemoryStop[];
+  /** id открытого конверта (редактирование записки). */
+  openEnvelopeId: string | null;
+  /** Черновик прямоугольника холста при размещении. */
+  wallCanvasDraftRect: { u0: number; v0: number; u1: number; v1: number } | null;
+  /** Активный холст на стене до помещения в конверт. */
+  activeWallCanvas: WallCanvas | null;
+  /** id конверта, чей холст развёрнут на панораме. */
+  unfoldEnvelopeId: string | null;
+  /** Перетаскивание развёрнутого холста. */
+  wallCanvasDrag: { pointerId: number; startX: number; startY: number; baseOffsetU: number; baseOffsetV: number } | null;
   viewportMode: ViewportMode;
   streetViewContext: StreetViewContext | null;
   readonly canvas: HTMLCanvasElement;

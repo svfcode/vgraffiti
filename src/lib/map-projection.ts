@@ -24,6 +24,40 @@ export function mapZoom(map: MapContext, fallback = 16): number {
 
 export type ViewportFrame = { cx: number; cy: number; w: number; h: number };
 
+/** Canvas панорамы Google Street View (не overlay расширения). */
+export function getStreetViewViewportFrame(): ViewportFrame | null {
+  const scene =
+    document.querySelector(".widget-scene canvas") ??
+    document.querySelector(".scene-core-webgl canvas") ??
+    document.querySelector(".widget-scene-canvas canvas") ??
+    document.querySelector(".widget-scene");
+  if (!scene) {
+    return null;
+  }
+  const r = scene.getBoundingClientRect();
+  if (r.width < 120 || r.height < 120) {
+    return null;
+  }
+  return {
+    cx: r.left + r.width / 2,
+    cy: r.top + r.height / 2,
+    w: r.width,
+    h: r.height,
+  };
+}
+
+/** Кадр для проекции в Street View: панорама → fallback. */
+export function getProjectionViewportFrame(svFrame: ViewportFrame | null): ViewportFrame {
+  if (svFrame) {
+    return svFrame;
+  }
+  const dom = getStreetViewViewportFrame();
+  if (dom) {
+    return dom;
+  }
+  return getMapViewportFrame();
+}
+
 /** Центр и размер области карты (крупнейший canvas на странице). */
 export function getMapViewportFrame(): ViewportFrame {
   let best: DOMRect | null = null;

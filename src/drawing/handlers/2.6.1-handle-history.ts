@@ -80,6 +80,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   const cur = host.current;
   const frame = getMapViewportFrame();
   const isSv = host.viewportMode === "streetview";
+  const isWallCanvas = isSv && host.uiMode === "wallCanvas";
   const sv = isSv ? getStreetViewContext(host) : null;
   const map = isSv ? null : getViewportMap(host);
   const zoom = captureZoom(host);
@@ -111,7 +112,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
 
   if (cur.tool === "brush" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
-    if (isSv && sv) {
+    if (isWallCanvas && sv) {
       host.strokes.push({
         kind: "brush",
         coordSpace: "streetview",
@@ -131,7 +132,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     }
   } else if (cur.tool === "eraser" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
-    if (isSv && sv) {
+    if (isWallCanvas && sv) {
       host.strokes.push({
         kind: "eraser",
         coordSpace: "streetview",
@@ -151,7 +152,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.hypot(x1 - x0, y1 - y0) >= 4) {
       pushHistoryBeforeMutation(host);
-      if (isSv && sv) {
+      if (isWallCanvas && sv) {
         const a = screenToViewDirection(x0, y0, sv, frame);
         const b = screenToViewDirection(x1, y1, sv, frame);
         host.strokes.push({
@@ -184,7 +185,7 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.abs(x1 - x0) >= 3 || Math.abs(y1 - y0) >= 3) {
       pushHistoryBeforeMutation(host);
-      if (isSv && sv) {
+      if (isWallCanvas && sv) {
         const a = screenToViewDirection(x0, y0, sv, frame);
         const b = screenToViewDirection(x1, y1, sv, frame);
         host.strokes.push({
