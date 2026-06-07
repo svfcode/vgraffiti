@@ -1,6 +1,7 @@
 import type { StoredStroke } from "../2.1-overlay-types";
 import type { MemoryStop } from "./memory-types";
 import { isMemoryStop } from "./memory-types";
+import { isExtensionContextValid } from "../../lib/extension-context";
 
 export type JourneySessionMode = "map" | "streetview";
 
@@ -22,7 +23,10 @@ const DELETED_QUEUE_KEY = "journeyDeletedQueue";
 const LEGACY_JOURNEYS_KEY = "vgraffiti:journeys";
 const LEGACY_VISIBLE_KEY = "vgraffiti:journey-visible";
 
-function storageArea(): chrome.storage.LocalStorageArea {
+function storageArea(): chrome.storage.LocalStorageArea | null {
+  if (!isExtensionContextValid()) {
+    return null;
+  }
   return chrome.storage.local;
 }
 
@@ -105,6 +109,9 @@ function readLegacyJson<T>(key: string): T | null {
 /** Перенос из page localStorage (если уже сохраняли до chrome.storage). */
 async function migrateLegacyStorage(): Promise<void> {
   const area = storageArea();
+  if (!area) {
+    return;
+  }
   const existing = await area.get([JOURNEYS_KEY, VISIBLE_KEY]);
   if (existing[JOURNEYS_KEY]) {
     return;
@@ -125,7 +132,11 @@ async function migrateLegacyStorage(): Promise<void> {
 
 export async function loadJourneys(): Promise<SavedJourney[]> {
   await migrateLegacyStorage();
-  const data = await storageArea().get(JOURNEYS_KEY);
+  const area = storageArea();
+  if (!area) {
+    return [];
+  }
+  const data = await area.get(JOURNEYS_KEY);
   return parseJourneyList(data[JOURNEYS_KEY]);
 }
 
@@ -138,12 +149,20 @@ export async function upsertJourney(journey: SavedJourney): Promise<void> {
     list.push(journey);
   }
   list.sort((a, b) => b.updatedAt - a.updatedAt);
-  await storageArea().set({ [JOURNEYS_KEY]: list });
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
+  await area.set({ [JOURNEYS_KEY]: list });
 }
 
 export async function loadVisibleJourneyIds(): Promise<string[]> {
   await migrateLegacyStorage();
-  const data = await storageArea().get(VISIBLE_KEY);
+  const area = storageArea();
+  if (!area) {
+    return [];
+  }
+  const data = await area.get(VISIBLE_KEY);
   const raw = data[VISIBLE_KEY];
   if (!Array.isArray(raw)) {
     return [];
@@ -152,7 +171,11 @@ export async function loadVisibleJourneyIds(): Promise<string[]> {
 }
 
 export async function saveVisibleJourneyIds(ids: string[]): Promise<void> {
-  await storageArea().set({ [VISIBLE_KEY]: ids });
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
+  await area.set({ [VISIBLE_KEY]: ids });
 }
 
 export type JourneySyncMeta = {
@@ -162,7 +185,11 @@ export type JourneySyncMeta = {
 };
 
 export async function loadJourneySyncMeta(): Promise<JourneySyncMeta> {
-  const data = await storageArea().get(SYNC_META_KEY);
+  const area = storageArea();
+  if (!area) {
+    return { pending: false, lastSyncAt: null, lastError: null };
+  }
+  const data = await area.get(SYNC_META_KEY);
   const raw = data[SYNC_META_KEY];
   if (!raw || typeof raw !== "object") {
     return { pending: false, lastSyncAt: null, lastError: null };
@@ -176,7 +203,11 @@ export async function loadJourneySyncMeta(): Promise<JourneySyncMeta> {
 }
 
 export async function saveJourneySyncMeta(meta: JourneySyncMeta): Promise<void> {
-  await storageArea().set({ [SYNC_META_KEY]: meta });
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
+  await area.set({ [SYNC_META_KEY]: meta });
 }
 
 export async function markJourneySyncPending(): Promise<void> {
@@ -185,17 +216,29 @@ export async function markJourneySyncPending(): Promise<void> {
 }
 
 export async function saveJourneys(journeys: SavedJourney[]): Promise<void> {
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
   const list = [...journeys].sort((a, b) => b.updatedAt - a.updatedAt);
-  await storageArea().set({ [JOURNEYS_KEY]: list });
+  await area.set({ [JOURNEYS_KEY]: list });
 }
 
 export async function removeJourneyById(id: string): Promise<void> {
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
   const list = await loadJourneys();
-  await storageArea().set({ [JOURNEYS_KEY]: list.filter((j) => j.id !== id) });
+  await area.set({ [JOURNEYS_KEY]: list.filter((j) => j.id !== id) });
 }
 
 export async function loadDeletedJourneyIds(): Promise<string[]> {
-  const data = await storageArea().get(DELETED_QUEUE_KEY);
+  const area = storageArea();
+  if (!area) {
+    return [];
+  }
+  const data = await area.get(DELETED_QUEUE_KEY);
   const raw = data[DELETED_QUEUE_KEY];
   if (!Array.isArray(raw)) {
     return [];
@@ -204,10 +247,14 @@ export async function loadDeletedJourneyIds(): Promise<string[]> {
 }
 
 export async function queueDeletedJourneyId(id: string): Promise<void> {
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
   const ids = await loadDeletedJourneyIds();
   if (!ids.includes(id)) {
     ids.push(id);
-    await storageArea().set({ [DELETED_QUEUE_KEY]: ids });
+    await area.set({ [DELETED_QUEUE_KEY]: ids });
   }
 }
 
@@ -215,7 +262,11 @@ export async function clearDeletedJourneyIds(remove: string[]): Promise<void> {
   if (remove.length === 0) {
     return;
   }
+  const area = storageArea();
+  if (!area) {
+    return;
+  }
   const removeSet = new Set(remove);
   const ids = (await loadDeletedJourneyIds()).filter((id) => !removeSet.has(id));
-  await storageArea().set({ [DELETED_QUEUE_KEY]: ids });
+  await area.set({ [DELETED_QUEUE_KEY]: ids });
 }

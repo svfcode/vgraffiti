@@ -1,4 +1,5 @@
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
+import { ignoreIfContextInvalidated } from "../../lib/extension-context";
 import { locateJourneyById, switchToJourneyId } from "../handlers/2.6.5-handle-journeys";
 import { loadJourneys } from "./journey-storage";
 import { runJourneyCloudSync } from "./journey-cloud-sync";
@@ -62,9 +63,15 @@ export async function applyJourneyDeepLink(host: DrawingOverlayHost): Promise<vo
 
   let ok = await tryActivate();
   if (!ok) {
-    await runJourneyCloudSync(host, true);
-    host.savedJourneys = await loadJourneys();
-    ok = await tryActivate();
+    try {
+      await runJourneyCloudSync(host, true);
+      host.savedJourneys = await loadJourneys();
+      ok = await tryActivate();
+    } catch (e) {
+      if (!ignoreIfContextInvalidated(e)) {
+        throw e;
+      }
+    }
   }
 
   if (ok) {
@@ -73,10 +80,18 @@ export async function applyJourneyDeepLink(host: DrawingOverlayHost): Promise<vo
   }
 }
 
-export function initJourneyDeepLink(host: DrawingOverlayHost): void {
+export function initJourneyDeepLink(host: DrawingOverlayHost): () => void {
   const onUrl = (): void => {
-    void applyJourneyDeepLink(host);
+    void applyJourneyDeepLink(host).catch((e) => {
+      if (!ignoreIfContextInvalidated(e)) {
+        console.error("[vgraffiti] journey deep link failed", e);
+      }
+    });
   };
   window.addEventListener("popstate", onUrl);
   window.addEventListener("hashchange", onUrl);
+  return () => {
+    window.removeEventListener("popstate", onUrl);
+    window.removeEventListener("hashchange", onUrl);
+  };
 }

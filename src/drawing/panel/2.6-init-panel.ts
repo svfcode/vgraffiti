@@ -78,7 +78,7 @@ export function initSwatches(host: DrawingOverlayHost): void {
   }
 }
 
-export async function initPanel(host: DrawingOverlayHost): Promise<void> {
+export async function initPanel(host: DrawingOverlayHost): Promise<() => void> {
   initSwatches(host);
   bindHistoryPanelEvents(host);
   bindToolPanelEvents(host);
@@ -103,9 +103,17 @@ export async function initPanel(host: DrawingOverlayHost): Promise<void> {
   syncUndoRedoButtons(host);
   resizeCanvas(host);
   host.syncMapFollow();
-  initJourneyCloudSync(host);
-  initJourneyDeepLink(host);
-  initPanelViewportMode(host);
+
+  const stopCloudSync = initJourneyCloudSync(host);
+  const stopDeepLink = initJourneyDeepLink(host);
+  const stopViewportMode = initPanelViewportMode(host);
+
   syncMemoryUi(host);
   await applyJourneyDeepLink(host);
+
+  return () => {
+    stopCloudSync();
+    stopDeepLink();
+    stopViewportMode();
+  };
 }

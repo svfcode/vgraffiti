@@ -181,9 +181,20 @@ function onModeClick(host: DrawingOverlayHost, e: MouseEvent): void {
   }
   e.stopPropagation();
   const m = btn.dataset.mode as UiMode | undefined;
-  if (!m) {
+  if (m !== "nav" && m !== "draw") {
     return;
   }
+  applyNavDrawMode(host, m);
+}
+
+export function toggleNavDrawMode(host: DrawingOverlayHost): void {
+  if (host.viewportMode === "streetview") {
+    return;
+  }
+  applyNavDrawMode(host, host.uiMode === "draw" ? "nav" : "draw");
+}
+
+function applyNavDrawMode(host: DrawingOverlayHost, m: "nav" | "draw"): void {
   if (host.uiMode === "wallCanvasUnfold") {
     foldWallCanvas(host);
   } else if (host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace") {
@@ -191,7 +202,7 @@ function onModeClick(host: DrawingOverlayHost, e: MouseEvent): void {
   }
   if (host.uiMode === "addEnvelope") {
     host.uiMode = "nav";
-    host.syncModeButtons();
+    syncModeButtons(host);
   }
   if (host.openEnvelopeId && m === "nav") {
     /* keep envelope panel open in nav */

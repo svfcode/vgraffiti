@@ -37,6 +37,7 @@ import {
   syncSizeRows,
   syncSwatches,
   syncToolButtons,
+  toggleNavDrawMode,
   wantsSizeCursor,
 } from "./handlers/2.6.2-handle-tools";
 import type { MemoryStop, WallCanvas } from "./inc/memory-types";
@@ -52,19 +53,30 @@ import type {
   ToolId,
   UiMode,
 } from "./2.1-overlay-types";
+import { ignoreIfContextInvalidated } from "../lib/extension-context";
 
 export class DrawingOverlay implements DrawingOverlayHost {
-  static mount(): void {
+  static mount(onInvalidate?: (teardown: () => void) => void): void {
     if (document.querySelector("[data-vgraffiti-overlay]")) {
       return;
     }
     try {
       const app = new DrawingOverlay();
-      void app.init();
+      void app.init().catch((e) => {
+        if (!ignoreIfContextInvalidated(e)) {
+          console.error("[vgraffiti] overlay init failed", e);
+        }
+      });
+      onInvalidate?.(() => app.destroy());
     } catch {
       /* canvas 2d недоступен */
     }
   }
+
+  private readonly hostEl: HTMLDivElement;
+  private teardownPanel: (() => void) | null = null;
+  private teardownMapBinding: (() => void) | null = null;
+  private destroyed = false;
 
   readonly root: HTMLDivElement;
   readonly canvas: HTMLCanvasElement;
@@ -154,6 +166,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
     const { canvas, sizeCursorEl, ctx } = createCanvas(root, bar);
     const panel = queryPanelElements(bar);
 
+    this.hostEl = host;
     this.root = root;
     this.canvas = canvas;
     this.sizeCursorEl = sizeCursorEl;
@@ -199,9 +212,19 @@ export class DrawingOverlay implements DrawingOverlayHost {
     document.documentElement.appendChild(host);
   }
 
+  destroy(): void {
+    if (this.destroyed) {
+      return;
+    }
+    this.destroyed = true;
+    this.teardownPanel?.();
+    this.teardownMapBinding?.();
+    this.hostEl.remove();
+  }
+
   private async init(): Promise<void> {
-    await initPanel(this);
-    installMapBinding(this);
+    this.teardownPanel = await initPanel(this);
+    this.teardownMapBinding = installMapBinding(this);
   }
 
   getViewportMap(): MapContext | null {
@@ -302,6 +325,10 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   cycleToolForward(): void {
     cycleToolForward(this);
+  }
+
+  toggleNavDrawMode(): void {
+    toggleNavDrawMode(this);
   }
 
   onClearClick(e: MouseEvent): void {

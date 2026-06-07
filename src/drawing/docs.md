@@ -21,7 +21,7 @@
 | **`handlers/2.6.1-handle-history.ts`** | Undo/redo, очистка, завершение штриха и история изменений. |
 | **`handlers/2.6.2-handle-tools.ts`** | Инструменты, цвета, размер кисти, режим nav/draw, курсор размера. |
 | **`handlers/2.6.3-handle-panel-move.ts`** | Перетаскивание панели и прозрачность toolbar. |
-| **`handlers/2.6.4-handle-shortcut.ts`** | Горячие клавиши (Ctrl+Z, Ctrl+Shift+Z, Ctrl+X, Ctrl+Q). |
+| **`handlers/2.6.4-handle-shortcut.ts`** | Горячие клавиши (Ctrl+Z, Ctrl+Shift+Z, Ctrl+X, Ctrl+Q, Ctrl+M). |
 | **`inc/stroke.ts`** | Штрихи кисти и ластика (`perfect-freehand`). |
 | **`inc/geo-stroke.ts`** | Проекция штрихов lat/lng ↔ экран, масштаб толщины по zoom. |
 | **`inc/map-binding.ts`** | Подписка на `map-live-probe`, `getViewportMap`, режим follow в «Нав». |

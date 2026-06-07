@@ -1,5 +1,6 @@
 /** Вызовы в service worker из popup и content script. */
 
+import { isExtensionContextValid } from "./extension-context";
 import type { MapContext } from "./map-context";
 import { searchRadiusDeg } from "./map-projection";
 
@@ -26,6 +27,9 @@ export function formatBgError(result: { error: string; body?: string }): string 
 }
 
 export async function sendToBackground(msg: Record<string, unknown>): Promise<BgResult> {
+  if (!isExtensionContextValid()) {
+    return { ok: false, error: "Extension context invalidated" };
+  }
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(msg, (response: unknown) => {
       const err = chrome.runtime.lastError;

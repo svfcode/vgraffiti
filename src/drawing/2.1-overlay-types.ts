@@ -341,6 +341,7 @@ export interface DrawingOverlayHost extends PanelElements {
   applyPanelOpacity(): void;
   applyBarPosition(): void;
   cycleToolForward(): void;
+  toggleNavDrawMode(): void;
   onClearClick(e: MouseEvent): void;
   onGlobalPointerUp(ev: PointerEvent): void;
 }

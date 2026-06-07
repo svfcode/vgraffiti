@@ -2,6 +2,7 @@ import { STORAGE_ACCESS_TOKEN } from "../../auth/constants";
 import { getSession } from "../../auth/session";
 import { STORAGE_API_BASE } from "../../lib/constants";
 import { formatBgError } from "../../lib/extension-api";
+import { isExtensionContextValid } from "../../lib/extension-context";
 import { bgSyncJourneys, type JourneySyncResponse } from "../../lib/journey-cloud-api";
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 import {
@@ -88,6 +89,9 @@ async function resolveCloudUiState(): Promise<{
   email: string | null;
   meta: Awaited<ReturnType<typeof loadJourneySyncMeta>>;
 }> {
+  if (!isExtensionContextValid()) {
+    return { state: "guest", email: null, meta: { pending: false, lastSyncAt: null, lastError: null } };
+  }
   const [session, apiData, meta] = await Promise.all([
     getSession(),
     chrome.storage.local.get(STORAGE_API_BASE),
@@ -153,6 +157,9 @@ async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResp
 }
 
 export async function runJourneyCloudSync(host: DrawingOverlayHost, force = false): Promise<void> {
+  if (!isExtensionContextValid()) {
+    return;
+  }
   if (syncInFlight) {
     return;
   }
@@ -225,6 +232,9 @@ export async function runJourneyCloudSync(host: DrawingOverlayHost, force = fals
 }
 
 export function scheduleJourneyCloudSync(host: DrawingOverlayHost, force = false): void {
+  if (!isExtensionContextValid()) {
+    return;
+  }
   window.clearTimeout(debounceTimer);
   debounceTimer = window.setTimeout(() => {
     void runJourneyCloudSync(host, force);
@@ -249,10 +259,19 @@ export function initJourneyCloudSync(host: DrawingOverlayHost): () => void {
   });
   host.cloudSyncBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
 
+  if (!isExtensionContextValid()) {
+    return () => {
+      boundHost = null;
+    };
+  }
+
   void refreshCloudSyncUi(host);
   scheduleJourneyCloudSync(host, true);
 
   intervalTimer = window.setInterval(() => {
+    if (!isExtensionContextValid()) {
+      return;
+    }
     void runJourneyCloudSync(host);
   }, SYNC_INTERVAL_MS);
 
@@ -260,7 +279,7 @@ export function initJourneyCloudSync(host: DrawingOverlayHost): () => void {
     changes: Record<string, chrome.storage.StorageChange>,
     area: string,
   ): void => {
-    if (area !== "local" || !boundHost) {
+    if (!isExtensionContextValid() || area !== "local" || !boundHost) {
       return;
     }
     if (changes[STORAGE_ACCESS_TOKEN] || changes[STORAGE_API_BASE]) {

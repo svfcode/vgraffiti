@@ -12,7 +12,9 @@ export default defineContentScript({
     "*://maps.yandex.ru/*",
   ],
   runAt: "document_idle",
-  main() {
-    mountDrawingOverlay();
+  main(ctx) {
+    mountDrawingOverlay((teardown) => {
+      ctx.onInvalidated(teardown);
+    });
   },
 });

@@ -14,14 +14,15 @@
         <input type="range" id="vgf-panel-opacity" min="25" max="100" value="100" step="5" />
       </label>
       <button type="button" id="vgf-journey-new" class="more-journey-new">Новое путешествие</button>
+      <button type="button" id="vgf-shortcuts-show" class="more-action-btn">Горячие клавиши</button>
       <button type="button" id="vgf-clear" title="Очистить рисунок">Очистить</button>
     </div>
   </details>
 </div>
 <div class="journey-active-title" id="vgf-journey-active-title" title=""></div>
 <div class="mode-row">
-  <button type="button" class="mode-btn" data-mode="nav" title="Навигация по карте (pan/zoom)">Нав</button>
-  <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay">Рис</button>
+  <button type="button" class="mode-btn" data-mode="nav" title="Навигация по карте (pan/zoom). Ctrl+M — переключить режим">Нав</button>
+  <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay. Ctrl+M — переключить режим">Рис</button>
 </div>
 <div class="memory-section" id="vgf-memory-section">
   <p class="memory-hint">Конверт привязан к этому месту. Вернитесь сюда — и найдёте его снова (небольшой сдвиг нормален).</p>
@@ -97,4 +98,14 @@
   <p class="pick-hint" id="vgf-pick-hint">Передний цвет</p>
   <div class="swatches" id="vgf-swatches"></div>
 </div>
+</div>
+<div class="shortcuts-backdrop" id="vgf-shortcuts-backdrop" hidden>
+  <div class="shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="vgf-shortcuts-title">
+    <div class="shortcuts-head">
+      <h2 class="shortcuts-title" id="vgf-shortcuts-title">Горячие клавиши</h2>
+      <button type="button" class="shortcuts-close" id="vgf-shortcuts-close" aria-label="Закрыть">×</button>
+    </div>
+    <dl class="shortcuts-list" id="vgf-shortcuts-list"></dl>
+    <p class="shortcuts-note" id="vgf-shortcuts-note"></p>
+  </div>
 </div>

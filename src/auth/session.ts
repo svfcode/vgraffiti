@@ -6,6 +6,7 @@ import {
   STORAGE_TOKEN_EXPIRES_AT,
   STORAGE_USER_EMAIL,
 } from "./constants";
+import { isExtensionContextValid } from "../lib/extension-context";
 
 export type Session = {
   accessToken: string | null;
@@ -14,7 +15,17 @@ export type Session = {
   profileDrawingsUrl: string | null;
 };
 
+const emptySession = (): Session => ({
+  accessToken: null,
+  expiresAt: null,
+  email: null,
+  profileDrawingsUrl: null,
+});
+
 export async function getSession(): Promise<Session> {
+  if (!isExtensionContextValid()) {
+    return emptySession();
+  }
   const r = await chrome.storage.local.get([
     STORAGE_ACCESS_TOKEN,
     STORAGE_TOKEN_EXPIRES_AT,
