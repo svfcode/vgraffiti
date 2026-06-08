@@ -224,6 +224,9 @@ canvas.layer.vgf-hide-cursor {
   background: rgba(255, 214, 102, 0.08);
   border: 1px solid rgba(255, 214, 102, 0.35);
 }
+.envelope-detail[hidden] {
+  display: none !important;
+}
 .envelope-detail-head {
   font-weight: 600;
   font-size: 11px;

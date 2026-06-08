@@ -533,11 +533,30 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
   };
   host.activeJourney.name = journey.name;
   host.journeyNameEl.value = journey.name;
-  await upsertJourney(journey);
+
+  const idx = host.savedJourneys.findIndex((j) => j.id === journey.id);
+  if (idx >= 0) {
+    host.savedJourneys[idx] = journey;
+  } else {
+    host.savedJourneys.push(journey);
+  }
+  host.savedJourneys.sort((a, b) => b.updatedAt - a.updatedAt);
+  setJourneyBaseline(host);
+  syncJourneyDirtyIndicator(host);
+  refreshJourneyList(host);
+
+  const ok = await upsertJourney(journey);
+  if (!ok) {
+    window.alert("Не удалось сохранить прогулку. Проверьте, что расширение активно, и обновите страницу.");
+    return;
+  }
+
   host.savedJourneys = await loadJourneys();
   setJourneyBaseline(host);
-  refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
+  refreshJourneyList(host);
+  await markJourneySyncPending();
+  scheduleJourneyCloudSync(host);
 
   const btn = host.journeySaveBtn;
   const prev = btn.textContent;

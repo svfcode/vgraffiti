@@ -18,6 +18,7 @@ import {
   loadJourneys,
   loadVisibleJourneyIds,
   markJourneySyncPending,
+  mergeJourneyLists,
   saveJourneySyncMeta,
   saveJourneys,
   saveVisibleJourneyIds,
@@ -123,15 +124,19 @@ export async function refreshCloudSyncUi(host: DrawingOverlayHost): Promise<void
 }
 
 async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResponse): Promise<void> {
-  const journeys = parseJourneyList(data.journeys);
+  const remote = parseJourneyList(data.journeys);
+  const local = await loadJourneys();
+  const journeys = remote.length > 0 ? mergeJourneyLists(local, remote) : local;
   const visibleIds = Array.isArray(data.visible_client_ids)
     ? data.visible_client_ids.filter((id): id is string => typeof id === "string")
-    : [];
+    : await loadVisibleJourneyIds();
 
   applyingRemote = true;
   try {
     await saveJourneys(journeys);
-    await saveVisibleJourneyIds(visibleIds);
+    if (visibleIds.length > 0 || remote.length > 0) {
+      await saveVisibleJourneyIds(visibleIds);
+    }
   } finally {
     applyingRemote = false;
   }

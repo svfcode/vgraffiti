@@ -55,7 +55,8 @@ function syncEnvelopeDetail(host: DrawingOverlayHost): void {
   const mem = id ? host.memories.find((m) => m.id === id) : null;
   const show = !!mem && host.viewportMode === "streetview";
   host.envelopeDetailWrap.hidden = !show;
-  if (!mem) {
+  if (!show) {
+    host.envelopeNoteEl.value = "";
     return;
   }
   host.envelopeNoteEl.value = mem.text;
