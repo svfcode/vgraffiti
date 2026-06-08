@@ -3,7 +3,7 @@ import type { MapContext } from "../lib/map-context";
 import type { StreetViewContext } from "../lib/streetview-context";
 import type { ViewportMode } from "../lib/viewport-mode";
 import type { SavedJourney } from "./inc/journey-storage";
-import type { MemoryStop, WallCanvas } from "./inc/memory-types";
+import type { WalkLocation, WallCanvas } from "./inc/memory-types";
 
 export const Z_OVERLAY = 2147483000;
 
@@ -38,7 +38,6 @@ export type ToolId = "brush" | "eraser" | "arrow" | "square";
 export type UiMode =
   | "nav"
   | "draw"
-  | "addEnvelope"
   | "wallCanvasPlace"
   | "wallCanvas"
   | "wallCanvasUnfold";
@@ -209,7 +208,7 @@ export function isEditableKeyTarget(target: EventTarget | null): boolean {
 export type JourneyBaseline = {
   name: string;
   strokes: StoredStroke[];
-  memories: MemoryStop[];
+  memories: WalkLocation[];
 };
 
 export type PanelElements = {
@@ -219,14 +218,11 @@ export type PanelElements = {
   journeyNewBtn: HTMLButtonElement;
   journeyNameEl: HTMLInputElement;
   journeySaveBtn: HTMLButtonElement;
-  memoryAddBtn: HTMLButtonElement;
-  memoryStatusEl: HTMLDivElement;
+  spotNoteEl: HTMLTextAreaElement;
+  currentCanvasesEl: HTMLDivElement;
+  placesHeadEl: HTMLDivElement;
   memoryListEl: HTMLDivElement;
-  memoryDraftWrap: HTMLDivElement;
   envelopeDetailWrap: HTMLDivElement;
-  envelopeNoteEl: HTMLTextAreaElement;
-  envelopeNoteSaveBtn: HTMLButtonElement;
-  envelopeCloseBtn: HTMLButtonElement;
   envelopeWallBtn: HTMLButtonElement;
   envelopeUnfoldBtn: HTMLButtonElement;
   envelopeFoldBtn: HTMLButtonElement;
@@ -274,15 +270,19 @@ export interface DrawingOverlayHost extends PanelElements {
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
   journeyNudgeOpen: boolean;
-  memories: MemoryStop[];
-  /** id открытого конверта (редактирование записки). */
-  openEnvelopeId: string | null;
+  memories: WalkLocation[];
+  /** Текущее / выбранное место прогулки. */
+  openLocationId: string | null;
   /** Черновик прямоугольника холста при размещении. */
   wallCanvasDraftRect: { u0: number; v0: number; u1: number; v1: number } | null;
-  /** Активный холст на стене до помещения в конверт. */
+  /** Активный холст на стене до сохранения в место. */
   activeWallCanvas: WallCanvas | null;
-  /** id конверта, чей холст развёрнут на панораме. */
-  unfoldEnvelopeId: string | null;
+  /** id места, чей холст развёрнут на панораме. */
+  unfoldLocationId: string | null;
+  /** Индекс холста внутри unfoldLocationId. */
+  unfoldCanvasIndex: number;
+  /** Ключ панорамы (lat,lng) последнего авто-места. */
+  lastPanoramaKey: string | null;
   /** Перетаскивание развёрнутого холста. */
   wallCanvasDrag: { pointerId: number; startX: number; startY: number; baseOffsetU: number; baseOffsetV: number } | null;
   viewportMode: ViewportMode;

@@ -88,6 +88,70 @@ canvas.layer.vgf-hide-cursor {
 .bar:not([data-viewport-mode="streetview"]) .memory-section {
   display: none;
 }
+.current-canvases {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+.current-canvases-label {
+  font-size: 11px;
+  color: rgba(255, 214, 102, 0.85);
+}
+.current-canvas-btn {
+  border: 1px solid rgba(255, 214, 102, 0.45);
+  background: rgba(255, 214, 102, 0.1);
+  color: inherit;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+.current-canvas-btn:hover {
+  background: rgba(255, 214, 102, 0.2);
+}
+.walk-note-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 4px;
+}
+.walk-spot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.places-head {
+  margin: 10px 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 214, 102, 0.9);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.place-item {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 6px 8px;
+  color: inherit;
+  font: inherit;
+}
+.place-item:hover {
+  border-color: rgba(255, 214, 102, 0.45);
+  background: rgba(255, 214, 102, 0.08);
+}
+.place-item.is-here {
+  border-color: rgba(66, 133, 244, 0.55);
+}
+.place-item.is-open {
+  border-color: rgba(255, 214, 102, 0.75);
+  background: rgba(255, 214, 102, 0.12);
+}
 .memory-hint {
   margin: 0;
   font-size: 10px;

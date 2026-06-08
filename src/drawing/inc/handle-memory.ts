@@ -1,77 +1,223 @@
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyDirtyIndicator } from "../handlers/2.6.5-handle-journeys";
+import { readStreetViewContext, type StreetViewContext } from "../../lib/streetview-context";
 import { getStreetViewContext } from "./map-binding";
 import {
-  generateMemoryId,
-  normFromCanvas,
+  generateLocationId,
   classifyPovMatch,
-  findBestNearbyMemory,
-  findEnvelopeAtCanvasPoint,
-  isEnvelopeVisible,
+  findLocationAtPanorama,
+  isAtSamePanorama,
+  normFromCanvas,
+  panoramaKey,
   getMemoryViewportFrame,
 } from "./view-memory";
-import type { MemoryStop } from "./memory-types";
-import { cloneMemories } from "./memory-types";
+import {
+  cloneLocations,
+  filledCanvases,
+  locationHasFilledCanvas,
+  type WalkLocation,
+  type WallCanvas,
+} from "./memory-types";
 import { isPointInWallRect, normalizeWallRect } from "./wall-canvas";
+import { navigateToStreetViewPov } from "./streetview-nav";
 
-export function syncMemoryStatus(host: DrawingOverlayHost): void {
-  const isSv = host.viewportMode === "streetview";
-  if (!isSv) {
-    host.memoryStatusEl.hidden = true;
+const NOTE_DEBOUNCE_MS = 400;
+let noteDebounceTimer = 0;
+
+function placesWithArt(locations: WalkLocation[]): WalkLocation[] {
+  return locations.filter(locationHasFilledCanvas);
+}
+
+function openLocation(host: DrawingOverlayHost): WalkLocation | null {
+  const id = host.openLocationId;
+  return id ? host.memories.find((m) => m.id === id) ?? null : null;
+}
+
+function flushSpotNoteToLocation(host: DrawingOverlayHost, loc: WalkLocation | null): void {
+  if (!loc || document.activeElement === host.spotNoteEl) {
+    return;
+  }
+  const text = host.spotNoteEl.value.trim();
+  if (loc.text !== text) {
+    loc.text = text;
+    syncJourneyDirtyIndicator(host);
+  }
+}
+
+function flushSpotNoteToCurrent(host: DrawingOverlayHost): void {
+  flushSpotNoteToLocation(host, openLocation(host));
+}
+
+function scheduleNoteFlush(host: DrawingOverlayHost): void {
+  window.clearTimeout(noteDebounceTimer);
+  noteDebounceTimer = window.setTimeout(() => {
+    const loc = openLocation(host);
+    if (!loc) {
+      return;
+    }
+    const text = host.spotNoteEl.value.trim();
+    if (loc.text !== text) {
+      loc.text = text;
+      syncJourneyDirtyIndicator(host);
+      refreshPlacesList(host);
+    }
+  }, NOTE_DEBOUNCE_MS);
+}
+
+/** При смене панорамы: новое место или подгрузка существующего. */
+export function onStreetViewPovChanged(host: DrawingOverlayHost): void {
+  if (host.viewportMode !== "streetview") {
+    return;
+  }
+  if (
+    host.uiMode === "wallCanvas" ||
+    host.uiMode === "wallCanvasPlace" ||
+    host.uiMode === "wallCanvasUnfold"
+  ) {
     return;
   }
 
   const sv = getStreetViewContext(host);
   if (!sv) {
-    host.memoryStatusEl.hidden = false;
-    host.memoryStatusEl.textContent = "Street View: нет POV";
-    host.memoryStatusEl.dataset.state = "none";
     return;
   }
 
-  const visible = host.memories.filter((m) => isEnvelopeVisible(m.anchor, sv)).length;
-  const nearby = findBestNearbyMemory(host.memories, sv);
-
-  host.memoryStatusEl.hidden = false;
-  if (visible > 0) {
-    host.memoryStatusEl.textContent = `Конверты: ${visible}`;
-    host.memoryStatusEl.dataset.state = "exact";
-  } else if (nearby) {
-    const deg = Math.round(Math.abs(nearby.deltaHeading));
-    const dir = nearby.deltaHeading > 0 ? "вправо" : "влево";
-    host.memoryStatusEl.textContent = `Есть конверт · поверните ~${deg}° ${dir}`;
-    host.memoryStatusEl.dataset.state = "nearby";
-  } else if (host.memories.length > 0) {
-    host.memoryStatusEl.textContent = "Другая панорама · конверты скрыты";
-    host.memoryStatusEl.dataset.state = "hidden";
-  } else {
-    host.memoryStatusEl.textContent = "Нет конвертов в прогулке";
-    host.memoryStatusEl.dataset.state = "empty";
+  const key = panoramaKey(sv);
+  const current = openLocation(host);
+  if (current && isAtSamePanorama(current.anchor, sv)) {
+    host.lastPanoramaKey = key;
+    syncMemoryUi(host);
+    return;
   }
+
+  if (key === host.lastPanoramaKey && current) {
+    syncMemoryUi(host);
+    return;
+  }
+
+  flushSpotNoteToCurrent(host);
+  host.lastPanoramaKey = key;
+
+  const existing = findLocationAtPanorama(host.memories, sv);
+  if (existing) {
+    host.openLocationId = existing.id;
+    if (document.activeElement !== host.spotNoteEl) {
+      host.spotNoteEl.value = existing.text;
+    }
+  } else {
+    const loc: WalkLocation = {
+      id: generateLocationId(),
+      anchor: { ...sv },
+      text: "",
+      createdAt: Date.now(),
+      canvases: [],
+    };
+    host.memories.push(loc);
+    host.openLocationId = loc.id;
+    if (document.activeElement !== host.spotNoteEl) {
+      host.spotNoteEl.value = "";
+    }
+    syncJourneyDirtyIndicator(host);
+  }
+
+  syncMemoryUi(host);
 }
 
-function syncEnvelopeDetail(host: DrawingOverlayHost): void {
-  const id = host.openEnvelopeId;
-  const mem = id ? host.memories.find((m) => m.id === id) : null;
-  const show = !!mem && host.viewportMode === "streetview";
-  host.envelopeDetailWrap.hidden = !show;
-  if (!show) {
-    host.envelopeNoteEl.value = "";
+function ensureLocationAtCurrentPov(host: DrawingOverlayHost): WalkLocation | null {
+  const sv = getStreetViewContext(host);
+  if (!sv) {
+    return null;
+  }
+  const existing = findLocationAtPanorama(host.memories, sv);
+  if (existing) {
+    host.openLocationId = existing.id;
+    host.lastPanoramaKey = panoramaKey(sv);
+    return existing;
+  }
+  const loc: WalkLocation = {
+    id: generateLocationId(),
+    anchor: { ...sv },
+    text: host.spotNoteEl.value.trim(),
+    createdAt: Date.now(),
+    canvases: [],
+  };
+  host.memories.push(loc);
+  host.openLocationId = loc.id;
+  host.lastPanoramaKey = panoramaKey(sv);
+  syncJourneyDirtyIndicator(host);
+  return loc;
+}
+
+function syncSpotEditor(host: DrawingOverlayHost): void {
+  const isSv = host.viewportMode === "streetview";
+  host.spotNoteEl.disabled = !isSv;
+  const inCanvas =
+    host.uiMode === "wallCanvas" ||
+    host.uiMode === "wallCanvasPlace" ||
+    host.uiMode === "wallCanvasUnfold";
+  host.envelopeWallBtn.hidden = !isSv || inCanvas;
+
+  if (!isSv) {
+    host.spotNoteEl.value = "";
+    host.envelopeDetailWrap.hidden = true;
+    host.envelopeUnfoldBtn.hidden = true;
+    host.envelopeFoldBtn.hidden = true;
+    host.currentCanvasesEl.hidden = true;
     return;
   }
-  host.envelopeNoteEl.value = mem.text;
-  const hasWall = !!mem.wallCanvas?.strokes.length;
-  host.envelopeWallBtn.hidden = host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace";
-  host.envelopePutInBtn.hidden = host.uiMode !== "wallCanvas";
-  host.envelopeUnfoldBtn.hidden = !hasWall || host.uiMode === "wallCanvasUnfold";
+
+  const loc = openLocation(host);
+  if (loc && document.activeElement !== host.spotNoteEl) {
+    host.spotNoteEl.value = loc.text;
+  }
+
+  const canvases = loc ? filledCanvases(loc) : [];
+  host.envelopeUnfoldBtn.hidden = canvases.length === 0 || inCanvas;
   host.envelopeFoldBtn.hidden = host.uiMode !== "wallCanvasUnfold";
+  refreshCurrentCanvases(host, loc, canvases);
+}
+
+function refreshCurrentCanvases(
+  host: DrawingOverlayHost,
+  loc: WalkLocation | null,
+  canvases: WallCanvas[],
+): void {
+  const box = host.currentCanvasesEl;
+  box.replaceChildren();
+  if (!loc || canvases.length === 0 || host.viewportMode !== "streetview") {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const label = document.createElement("div");
+  label.className = "current-canvases-label";
+  label.textContent =
+    canvases.length === 1 ? "Холст на этом месте" : `Холсты на этом месте (${canvases.length})`;
+  box.appendChild(label);
+
+  canvases.forEach((_, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "current-canvas-btn";
+    btn.textContent = `Развернуть холст ${index + 1}`;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void unfoldWallCanvas(host, index);
+    });
+    box.appendChild(btn);
+  });
+}
+
+function syncCanvasActions(host: DrawingOverlayHost): void {
+  const inCanvas = host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace";
+  const show = host.viewportMode === "streetview" && inCanvas;
+  host.envelopeDetailWrap.hidden = !show;
+  host.envelopePutInBtn.hidden = host.uiMode !== "wallCanvas";
 }
 
 export function syncMemoryUi(host: DrawingOverlayHost): void {
   const isSv = host.viewportMode === "streetview";
-  host.memoryAddBtn.hidden = !isSv;
-  host.memoryListEl.hidden = !isSv || host.memories.length === 0;
-  host.memoryDraftWrap.hidden = true;
+  const artPlaces = placesWithArt(host.memories);
 
   const toolsOn =
     isSv &&
@@ -81,201 +227,130 @@ export function syncMemoryUi(host: DrawingOverlayHost): void {
   host.bar.querySelector(".tools-section")?.classList.toggle("memory-sketch-tools", toolsOn);
 
   if (!isSv) {
-    host.memoryStatusEl.hidden = true;
+    host.placesHeadEl.hidden = true;
+    host.memoryListEl.hidden = true;
     host.envelopeDetailWrap.hidden = true;
+    host.currentCanvasesEl.hidden = true;
+    syncSpotEditor(host);
     return;
   }
 
-  syncMemoryStatus(host);
-  host.memoryAddBtn.classList.toggle("on", host.uiMode === "addEnvelope");
-  syncEnvelopeDetail(host);
-  refreshMemoryList(host);
+  syncSpotEditor(host);
+  syncCanvasActions(host);
+  refreshPlacesList(host);
+
+  host.placesHeadEl.hidden = artPlaces.length === 0;
+  host.memoryListEl.hidden = artPlaces.length === 0;
 }
 
-export function refreshMemoryList(host: DrawingOverlayHost): void {
+export function refreshPlacesList(host: DrawingOverlayHost): void {
   const list = host.memoryListEl;
   list.replaceChildren();
-  if (host.memories.length === 0) {
+  const artPlaces = placesWithArt(host.memories);
+  if (artPlaces.length === 0 || host.viewportMode !== "streetview") {
     list.hidden = true;
     return;
   }
-  list.hidden = host.viewportMode !== "streetview";
+  list.hidden = false;
   const sv = getStreetViewContext(host);
 
-  host.memories.forEach((mem, index) => {
-    const row = document.createElement("div");
-    row.className = "memory-item";
-    if (sv && isEnvelopeVisible(mem.anchor, sv)) {
-      row.classList.add("is-active");
+  artPlaces.forEach((loc, index) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "memory-item place-item";
+    if (sv && isAtSamePanorama(loc.anchor, sv)) {
+      row.classList.add("is-here");
     }
-    if (mem.id === host.openEnvelopeId) {
+    if (loc.id === host.openLocationId) {
       row.classList.add("is-open");
     }
 
     const title = document.createElement("div");
     title.className = "memory-item-title";
-    title.textContent = mem.title?.trim() || `Конверт ${index + 1}`;
+    title.textContent = loc.title?.trim() || loc.text.trim().slice(0, 40) || `Место ${index + 1}`;
 
     const text = document.createElement("div");
     text.className = "memory-item-text";
-    const note = mem.text.trim();
-    const wall = mem.wallCanvas?.strokes.length ? " · холст" : "";
-    text.textContent = note ? `${note.slice(0, 60)}${wall}` : `(пусто)${wall}`;
+    const note = loc.text.trim();
+    const n = filledCanvases(loc).length;
+    text.textContent = note
+      ? `${note.slice(0, 72)}${n > 1 ? ` · ${n} холста` : ""}`
+      : n > 1
+        ? `${n} холста`
+        : "Рисунок на стене";
 
-    const actions = document.createElement("div");
-    actions.className = "memory-item-actions";
-
-    const openBtn = document.createElement("button");
-    openBtn.type = "button";
-    openBtn.className = "memory-sketch-btn";
-    openBtn.textContent = "Открыть";
-    openBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      openEnvelope(host, mem.id);
-    });
-
-    const delBtn = document.createElement("button");
-    delBtn.type = "button";
-    delBtn.className = "memory-del-btn";
-    delBtn.textContent = "×";
-    delBtn.title = "Удалить конверт";
-    delBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      removeMemory(host, mem.id);
-    });
-
-    actions.appendChild(openBtn);
-    actions.appendChild(delBtn);
-    row.addEventListener("click", () => openEnvelope(host, mem.id));
     row.appendChild(title);
     row.appendChild(text);
-    row.appendChild(actions);
+    row.addEventListener("click", (e) => {
+      e.stopPropagation();
+      void goToLocation(host, loc.id);
+    });
     list.appendChild(row);
   });
+}
+
+async function ensureLocationPov(
+  host: DrawingOverlayHost,
+  anchor: StreetViewContext,
+): Promise<boolean> {
+  const sv = getStreetViewContext(host);
+  if (sv && classifyPovMatch(anchor, sv) === "exact") {
+    return true;
+  }
+  const ok = await navigateToStreetViewPov(anchor);
+  if (ok) {
+    const next = readStreetViewContext();
+    if (next) {
+      host.streetViewContext = next;
+      host.lastPanoramaKey = panoramaKey(next);
+    }
+    host.scheduleRedraw();
+  }
+  return ok;
+}
+
+export async function goToLocation(host: DrawingOverlayHost, id: string): Promise<void> {
+  const loc = host.memories.find((m) => m.id === id);
+  if (!loc) {
+    return;
+  }
+  flushSpotNoteToCurrent(host);
+  const ok = await ensureLocationPov(host, loc.anchor);
+  if (!ok) {
+    window.alert("Не удалось перейти к этому месту. Подойдите ближе вручную.");
+    return;
+  }
+  host.openLocationId = id;
+  host.lastPanoramaKey = panoramaKey(loc.anchor);
+  host.spotNoteEl.value = loc.text;
+  host.uiMode = "nav";
+  host.syncModeButtons();
+  syncMemoryUi(host);
+  host.scheduleRedraw();
 }
 
 function resetWallModes(host: DrawingOverlayHost): void {
   host.wallCanvasDraftRect = null;
   host.activeWallCanvas = null;
-  host.unfoldEnvelopeId = null;
+  host.unfoldLocationId = null;
+  host.unfoldCanvasIndex = 0;
   host.wallCanvasDrag = null;
   host.strokes.length = 0;
   host.past.length = 0;
   host.future.length = 0;
 }
 
-export function enterAddEnvelopeMode(host: DrawingOverlayHost): void {
-  if (host.viewportMode !== "streetview") {
-    return;
-  }
-  closeEnvelope(host);
-  host.cancelActiveStroke();
-  resetWallModes(host);
-  host.uiMode = "addEnvelope";
-  host.syncModeButtons();
-  syncMemoryUi(host);
-}
-
-export function onEnvelopePlacementClick(host: DrawingOverlayHost, x: number, y: number): void {
-  if (host.uiMode !== "addEnvelope") {
-    return;
-  }
+export async function startWallCanvasPlace(host: DrawingOverlayHost): Promise<void> {
   const sv = getStreetViewContext(host);
   if (!sv) {
     return;
   }
-  const [u, v] = normFromCanvas(x, y, host.canvas);
-  const mem: MemoryStop = {
-    id: generateMemoryId(),
-    anchor: { ...sv },
-    u,
-    v,
-    text: "",
-    createdAt: Date.now(),
-  };
-  host.memories.push(mem);
-  host.uiMode = "nav";
-  host.syncModeButtons();
-  openEnvelope(host, mem.id);
-  syncJourneyDirtyIndicator(host);
-  host.scheduleRedraw();
-}
-
-export function onEnvelopeCanvasClick(host: DrawingOverlayHost, x: number, y: number): void {
-  if (host.uiMode !== "nav") {
+  scheduleNoteFlush(host);
+  const loc = ensureLocationAtCurrentPov(host);
+  if (!loc) {
     return;
   }
-  const sv = getStreetViewContext(host);
-  const hit = findEnvelopeAtCanvasPoint(x, y, host.memories, sv, host.canvas);
-  if (hit) {
-    openEnvelope(host, hit.id);
-  }
-}
-
-export function openEnvelope(host: DrawingOverlayHost, id: string): void {
-  const mem = host.memories.find((m) => m.id === id);
-  if (!mem) {
-    return;
-  }
-  host.openEnvelopeId = id;
-  host.uiMode = "nav";
-  host.syncModeButtons();
-  syncMemoryUi(host);
-  host.scheduleRedraw();
-}
-
-export function closeEnvelope(host: DrawingOverlayHost): void {
-  if (host.uiMode === "wallCanvasUnfold") {
-    foldWallCanvas(host);
-  }
-  if (host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace") {
-    cancelWallCanvas(host);
-  }
-  host.openEnvelopeId = null;
-  syncMemoryUi(host);
-  host.scheduleRedraw();
-}
-
-export function saveEnvelopeNote(host: DrawingOverlayHost): void {
-  const id = host.openEnvelopeId;
-  if (!id) {
-    return;
-  }
-  const mem = host.memories.find((m) => m.id === id);
-  if (mem) {
-    mem.text = host.envelopeNoteEl.value.trim();
-  }
-  syncJourneyDirtyIndicator(host);
-  syncMemoryUi(host);
-  host.scheduleRedraw();
-}
-
-export function removeMemory(host: DrawingOverlayHost, id: string): void {
-  host.memories = host.memories.filter((m) => m.id !== id);
-  if (host.openEnvelopeId === id) {
-    host.openEnvelopeId = null;
-  }
-  if (host.unfoldEnvelopeId === id) {
-    host.unfoldEnvelopeId = null;
-    host.wallCanvasDrag = null;
-  }
-  if (host.uiMode !== "nav" && host.uiMode !== "addEnvelope") {
-    host.uiMode = "nav";
-    host.syncModeButtons();
-  }
-  syncMemoryUi(host);
-  syncJourneyDirtyIndicator(host);
-  host.scheduleRedraw();
-}
-
-export function startWallCanvasPlace(host: DrawingOverlayHost): void {
-  const id = host.openEnvelopeId;
-  const sv = getStreetViewContext(host);
-  const mem = id ? host.memories.find((m) => m.id === id) : null;
-  if (!mem || !sv || classifyPovMatch(mem.anchor, sv) !== "exact") {
-    window.alert("Вернитесь к ракурсу конверта, чтобы разместить холст.");
-    return;
-  }
+  loc.text = host.spotNoteEl.value.trim();
   host.cancelActiveStroke();
   host.wallCanvasDraftRect = null;
   host.activeWallCanvas = null;
@@ -340,17 +415,18 @@ export function cancelWallCanvas(host: DrawingOverlayHost): void {
   host.scheduleRedraw();
 }
 
-export function putWallCanvasInEnvelope(host: DrawingOverlayHost): void {
-  const id = host.openEnvelopeId;
+export function saveCanvasToLocation(host: DrawingOverlayHost): void {
+  const id = host.openLocationId;
   const wc = host.activeWallCanvas;
-  const mem = id ? host.memories.find((m) => m.id === id) : null;
-  if (!mem || !wc) {
+  const loc = id ? host.memories.find((m) => m.id === id) : null;
+  if (!loc || !wc) {
     return;
   }
-  mem.wallCanvas = {
+  const saved: typeof wc = {
     ...structuredClone(wc),
     strokes: host.strokes.length > 0 ? structuredClone(host.strokes) : wc.strokes,
   };
+  loc.canvases.push(saved);
   resetWallModes(host);
   host.uiMode = "nav";
   host.syncModeButtons();
@@ -359,15 +435,28 @@ export function putWallCanvasInEnvelope(host: DrawingOverlayHost): void {
   host.scheduleRedraw();
 }
 
-export function unfoldWallCanvas(host: DrawingOverlayHost): void {
-  const id = host.openEnvelopeId;
-  const mem = id ? host.memories.find((m) => m.id === id) : null;
+function canvasForUnfold(loc: WalkLocation, index: number): WallCanvas | null {
+  const filled = filledCanvases(loc);
+  return filled[index] ?? null;
+}
+
+export function unfoldWallCanvas(host: DrawingOverlayHost, canvasIndex = 0): void {
   const sv = getStreetViewContext(host);
-  if (!mem?.wallCanvas || !sv || classifyPovMatch(mem.anchor, sv) !== "exact") {
-    window.alert("Вернитесь к ракурсу конверта, чтобы развернуть холст.");
+  if (!sv) {
     return;
   }
-  host.unfoldEnvelopeId = id;
+  let id = host.openLocationId;
+  if (!id) {
+    id = findLocationAtPanorama(host.memories, sv)?.id ?? null;
+  }
+  const loc = id ? host.memories.find((m) => m.id === id) : null;
+  const canvas = loc ? canvasForUnfold(loc, canvasIndex) : null;
+  if (!loc || !canvas) {
+    return;
+  }
+  host.openLocationId = id;
+  host.unfoldLocationId = id;
+  host.unfoldCanvasIndex = canvasIndex;
   host.uiMode = "wallCanvasUnfold";
   host.syncModeButtons();
   syncMemoryUi(host);
@@ -375,7 +464,8 @@ export function unfoldWallCanvas(host: DrawingOverlayHost): void {
 }
 
 export function foldWallCanvas(host: DrawingOverlayHost): void {
-  host.unfoldEnvelopeId = null;
+  host.unfoldLocationId = null;
+  host.unfoldCanvasIndex = 0;
   host.wallCanvasDrag = null;
   host.uiMode = "nav";
   host.syncModeButtons();
@@ -384,48 +474,57 @@ export function foldWallCanvas(host: DrawingOverlayHost): void {
   host.scheduleRedraw();
 }
 
+function unfoldLocation(host: DrawingOverlayHost): WalkLocation | null {
+  const id = host.unfoldLocationId;
+  return id ? host.memories.find((m) => m.id === id) ?? null : null;
+}
+
+function activeUnfoldCanvas(host: DrawingOverlayHost): WallCanvas | null {
+  const loc = unfoldLocation(host);
+  if (!loc) {
+    return null;
+  }
+  return canvasForUnfold(loc, host.unfoldCanvasIndex);
+}
+
 export function onWallCanvasUnfoldDown(
   host: DrawingOverlayHost,
   x: number,
   y: number,
   pointerId: number,
 ): boolean {
-  if (host.uiMode !== "wallCanvasUnfold" || !host.unfoldEnvelopeId) {
+  if (host.uiMode !== "wallCanvasUnfold" || !host.unfoldLocationId) {
     return false;
   }
-  const mem = host.memories.find((m) => m.id === host.unfoldEnvelopeId);
-  if (!mem?.wallCanvas) {
+  const canvas = activeUnfoldCanvas(host);
+  if (!canvas) {
     return false;
   }
   const frame = getMemoryViewportFrame();
-  if (!isPointInWallRect(x, y, mem.wallCanvas, host.canvas, frame)) {
+  if (!isPointInWallRect(x, y, canvas, host.canvas, frame)) {
     return false;
   }
   host.wallCanvasDrag = {
     pointerId,
     startX: x,
     startY: y,
-    baseOffsetU: mem.wallCanvas.offsetU ?? 0,
-    baseOffsetV: mem.wallCanvas.offsetV ?? 0,
+    baseOffsetU: canvas.offsetU ?? 0,
+    baseOffsetV: canvas.offsetV ?? 0,
   };
   return true;
 }
 
 export function onWallCanvasUnfoldMove(host: DrawingOverlayHost, x: number, y: number): void {
   const drag = host.wallCanvasDrag;
-  const id = host.unfoldEnvelopeId;
-  if (!drag || !id) {
-    return;
-  }
-  const mem = host.memories.find((m) => m.id === id);
-  if (!mem?.wallCanvas) {
+  const canvas = activeUnfoldCanvas(host);
+  if (!drag || !canvas) {
     return;
   }
   const frame = getMemoryViewportFrame();
   const du = (x - drag.startX) / frame.w;
   const dv = (y - drag.startY) / frame.h;
-  mem.wallCanvas.offsetU = drag.baseOffsetU + du;
-  mem.wallCanvas.offsetV = drag.baseOffsetV + dv;
+  canvas.offsetU = drag.baseOffsetU + du;
+  canvas.offsetV = drag.baseOffsetV + dv;
   host.scheduleRedraw();
 }
 
@@ -434,43 +533,39 @@ export function onWallCanvasUnfoldUp(host: DrawingOverlayHost): void {
   syncJourneyDirtyIndicator(host);
 }
 
-export function cloneHostMemories(host: DrawingOverlayHost): MemoryStop[] {
-  return cloneMemories(host.memories);
+export function cloneHostMemories(host: DrawingOverlayHost): WalkLocation[] {
+  return cloneLocations(host.memories);
 }
 
 export function bindMemoryPanelEvents(host: DrawingOverlayHost): void {
-  host.memoryAddBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (host.uiMode === "addEnvelope") {
-      host.uiMode = "nav";
-      host.syncModeButtons();
-      syncMemoryUi(host);
-    } else {
-      enterAddEnvelopeMode(host);
+  host.spotNoteEl.addEventListener("input", () => {
+    scheduleNoteFlush(host);
+  });
+  host.spotNoteEl.addEventListener("blur", () => {
+    window.clearTimeout(noteDebounceTimer);
+    const loc = openLocation(host);
+    if (loc) {
+      loc.text = host.spotNoteEl.value.trim();
+      syncJourneyDirtyIndicator(host);
+      refreshPlacesList(host);
     }
-  });
-  host.envelopeNoteSaveBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    saveEnvelopeNote(host);
-  });
-  host.envelopeCloseBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeEnvelope(host);
   });
   host.envelopeWallBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    startWallCanvasPlace(host);
+    void startWallCanvasPlace(host);
   });
   host.envelopePutInBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    putWallCanvasInEnvelope(host);
+    saveCanvasToLocation(host);
   });
   host.envelopeUnfoldBtn.addEventListener("click", (e) => {
     e.stopPropagation();
-    unfoldWallCanvas(host);
+    unfoldWallCanvas(host, 0);
   });
   host.envelopeFoldBtn.addEventListener("click", (e) => {
     e.stopPropagation();
     foldWallCanvas(host);
   });
+  host.spotNoteEl.addEventListener("click", (e) => e.stopPropagation());
+  host.spotNoteEl.addEventListener("pointerdown", (e) => e.stopPropagation());
 }

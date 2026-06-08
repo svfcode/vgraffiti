@@ -14,11 +14,13 @@ import {
   PAN_VISUAL_MSG,
   RENDER_MODE_MSG,
   SET_CENTER_MSG,
+  SET_STREET_VIEW_POV_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
   ZOOM_VISUAL_MSG,
   type GeoStrokePayload,
 } from "./map-bridge-protocol";
+import { buildGoogleStreetViewHref, type StreetViewContext } from "./streetview-context";
 
 type BridgeMap = {
   provider: "yandex" | "google";
@@ -506,6 +508,52 @@ export function runMapBridge(): void {
     return false;
   }
 
+  function parseStreetViewPovDetail(raw: unknown): StreetViewContext | null {
+    if (!raw || typeof raw !== "object") {
+      return null;
+    }
+    const o = raw as Record<string, unknown>;
+    const lat = o.lat;
+    const lng = o.lng;
+    const fov = o.fov;
+    const heading = o.heading;
+    const pitch = o.pitch;
+    if (
+      typeof lat !== "number" ||
+      typeof lng !== "number" ||
+      typeof fov !== "number" ||
+      typeof heading !== "number" ||
+      typeof pitch !== "number" ||
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng) ||
+      !Number.isFinite(fov) ||
+      !Number.isFinite(heading) ||
+      !Number.isFinite(pitch)
+    ) {
+      return null;
+    }
+    return { provider: "google", lat, lng, fov, heading, pitch };
+  }
+
+  function applyStreetViewPovViaUrl(ctx: StreetViewContext): boolean {
+    const href = location.href;
+    const next = buildGoogleStreetViewHref(href, ctx);
+    if (!next || next === href) {
+      return false;
+    }
+    history.pushState(null, "", next);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    return true;
+  }
+
+  function applyStreetViewPov(raw: unknown): void {
+    const ctx = parseStreetViewPovDetail(raw);
+    if (!ctx) {
+      return;
+    }
+    applyStreetViewPovViaUrl(ctx);
+  }
+
   function applyMapCenter(lat: number, lng: number, zoom: number | null): void {
     scanDomForMap();
     patchYmaps2();
@@ -822,6 +870,11 @@ export function runMapBridge(): void {
     applyMapCenter(lat, lng, zoom);
   });
 
+  document.addEventListener(SET_STREET_VIEW_POV_MSG, (ev: Event) => {
+    const detail = (ev as CustomEvent).detail;
+    applyStreetViewPov(detail);
+  });
+
   window.addEventListener("message", (event: MessageEvent) => {
     if (event.source !== window || !event.data || typeof event.data !== "object") {
       return;
@@ -841,6 +894,10 @@ export function runMapBridge(): void {
         return;
       }
       applyMapCenter(lat, lng, zoom);
+      return;
+    }
+    if (data.type === SET_STREET_VIEW_POV_MSG) {
+      applyStreetViewPov(data);
       return;
     }
     if (data.type !== FOLLOW_MSG) {

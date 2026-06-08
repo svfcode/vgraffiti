@@ -1,6 +1,16 @@
 import type { StoredStroke } from "../2.1-overlay-types";
-import type { MemoryStop } from "./memory-types";
-import { isMemoryStop } from "./memory-types";
+import type { WalkLocation } from "./memory-types";
+import { isWalkLocation, normalizeWalkLocation } from "./memory-types";
+
+function normalizeJourneyMemories(j: SavedJourney): SavedJourney {
+  if (!j.memories?.length) {
+    return j;
+  }
+  const memories = j.memories
+    .map((m) => normalizeWalkLocation(m) ?? (isWalkLocation(m) ? m : null))
+    .filter((m): m is WalkLocation => m != null);
+  return { ...j, memories: memories.length > 0 ? memories : undefined };
+}
 
 export type JourneySessionMode = "map" | "streetview";
 
@@ -8,7 +18,7 @@ export type SavedJourney = {
   id: string;
   name: string;
   strokes: StoredStroke[];
-  memories?: MemoryStop[];
+  memories?: WalkLocation[];
   createdAt: number;
   updatedAt: number;
   sessionMode?: JourneySessionMode;
@@ -126,15 +136,19 @@ function isSavedJourney(v: unknown): v is SavedJourney {
     typeof o.createdAt === "number" &&
     typeof o.updatedAt === "number" &&
     modeOk &&
-    (o.memories === undefined || (Array.isArray(o.memories) && o.memories.every(isMemoryStop)))
+    (o.memories === undefined || Array.isArray(o.memories))
   );
+}
+
+export function parseStoredJourneys(raw: unknown): SavedJourney[] {
+  return parseJourneyList(raw);
 }
 
 function parseJourneyList(raw: unknown): SavedJourney[] {
   if (!Array.isArray(raw)) {
     return [];
   }
-  return raw.filter(isSavedJourney).map(withSessionMode);
+  return raw.filter(isSavedJourney).map((j) => withSessionMode(normalizeJourneyMemories(j)));
 }
 
 function loadJourneysFromPage(): SavedJourney[] {
@@ -287,7 +301,11 @@ export function mergeJourneyLists(local: SavedJourney[], remote: SavedJourney[])
   for (const j of remote) {
     const prev = byId.get(j.id);
     if (!prev || j.updatedAt >= prev.updatedAt) {
-      byId.set(j.id, j);
+      const merged = normalizeJourneyMemories(j);
+      if (prev && (!merged.memories?.length) && prev.memories?.length) {
+        merged.memories = prev.memories;
+      }
+      byId.set(j.id, withSessionMode(merged));
     }
   }
   return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt);

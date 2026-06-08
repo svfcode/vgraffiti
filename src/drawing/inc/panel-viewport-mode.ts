@@ -2,7 +2,7 @@ import type { ViewportMode } from "../../lib/viewport-mode";
 import { installViewportModeWatcher } from "../../lib/viewport-mode";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyPanel, closeJourneyNudge } from "../handlers/2.6.5-handle-journeys";
-import { syncMemoryUi } from "./handle-memory";
+import { syncMemoryUi, onStreetViewPovChanged } from "./handle-memory";
 import { syncStreetViewContext } from "./map-binding";
 
 export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportMode): void {
@@ -41,15 +41,16 @@ export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportM
       host.uiMode = "nav";
       host.syncModeButtons();
     }
+    onStreetViewPovChanged(host);
   } else {
     host.streetViewContext = null;
-    host.openEnvelopeId = null;
+    host.openLocationId = null;
+    host.lastPanoramaKey = null;
     host.wallCanvasDraftRect = null;
     host.activeWallCanvas = null;
-    host.unfoldEnvelopeId = null;
+    host.unfoldLocationId = null;
     host.wallCanvasDrag = null;
     if (
-      host.uiMode === "addEnvelope" ||
       host.uiMode === "wallCanvas" ||
       host.uiMode === "wallCanvasPlace" ||
       host.uiMode === "wallCanvasUnfold"

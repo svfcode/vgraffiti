@@ -5,12 +5,13 @@ import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
 import { projectStreetViewStroke } from "./inc/sv-stroke";
-import { syncMemoryStatus } from "./inc/handle-memory";
-import { getMemoryViewportFrame, renderEnvelopes } from "./inc/view-memory";
+import { filledCanvases } from "./inc/memory-types";
+import { getMemoryViewportFrame } from "./inc/view-memory";
 import {
   renderWallCanvasFrame,
   renderWallCanvasStrokes,
   renderWallRectPreview,
+  wallCanvasOffsetPx,
   wallCanvasScreenRect,
 } from "./inc/wall-canvas";
 import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
@@ -35,10 +36,14 @@ function renderSvStrokesClipped(
   memFrame: ViewportFrame,
 ): void {
   const screen = wallCanvasScreenRect(wc, canvas, memFrame);
+  const { dx, dy } = wallCanvasOffsetPx(wc, canvas, memFrame);
   ctx.save();
   ctx.beginPath();
   ctx.rect(screen.x, screen.y, screen.w, screen.h);
   ctx.clip();
+  if (dx !== 0 || dy !== 0) {
+    ctx.translate(dx, dy);
+  }
   for (const s of strokes) {
     const projected = projectStreetViewStroke(s, sv, mapFrame);
     if (!projected) {
@@ -67,11 +72,15 @@ function renderCurrentInWall(
     return;
   }
   const screen = wallCanvasScreenRect(wc, host.canvas, memFrame);
+  const { dx, dy } = wallCanvasOffsetPx(wc, host.canvas, memFrame);
   const cur = host.current;
   ctx.save();
   ctx.beginPath();
   ctx.rect(screen.x, screen.y, screen.w, screen.h);
   ctx.clip();
+  if (dx !== 0 || dy !== 0) {
+    ctx.translate(dx, dy);
+  }
   if (cur.tool === "brush") {
     renderStroke(ctx, cur.points, { color: host.fgColor, size: host.getBrushSize() });
   } else if (cur.tool === "eraser") {
@@ -100,16 +109,15 @@ export function redraw(host: DrawingOverlayHost): void {
   const memFrame = getMemoryViewportFrame();
 
   if (host.viewportMode === "streetview" && sv) {
-    renderEnvelopes(c, host.memories, sv, host.canvas, host.openEnvelopeId, memFrame);
-
-    if (host.unfoldEnvelopeId) {
-      const mem = host.memories.find((m) => m.id === host.unfoldEnvelopeId);
-      if (mem?.wallCanvas) {
-        renderWallCanvasFrame(c, mem.wallCanvas, host.canvas, memFrame, {
+    if (host.unfoldLocationId) {
+      const loc = host.memories.find((m) => m.id === host.unfoldLocationId);
+      const filled = loc ? filledCanvases(loc) : [];
+      const wc = filled[host.unfoldCanvasIndex] ?? filled[0];
+      if (wc) {
+        renderWallCanvasFrame(c, wc, host.canvas, memFrame, {
           fill: "rgba(255, 250, 230, 0.88)",
-          label: "Перетащите для подстройки",
         });
-        renderWallCanvasStrokes(c, mem.wallCanvas, sv, host.canvas, frame);
+        renderWallCanvasStrokes(c, wc, sv, host.canvas, frame, memFrame);
       }
     }
 
@@ -125,8 +133,6 @@ export function redraw(host: DrawingOverlayHost): void {
     if (host.wallCanvasDraftRect) {
       renderWallRectPreview(c, host.wallCanvasDraftRect, host.canvas, memFrame);
     }
-
-    syncMemoryStatus(host);
   } else if (!host.mapNativeRender) {
     for (const s of getDisplayStrokes(host)) {
       const projected = map ? projectStoredStroke(s, map, frame) : null;

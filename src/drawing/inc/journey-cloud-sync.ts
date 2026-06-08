@@ -5,6 +5,8 @@ import { formatBgError } from "../../lib/extension-api";
 import { isExtensionContextValid } from "../../lib/extension-context";
 import { bgSyncJourneys, type JourneySyncResponse } from "../../lib/journey-cloud-api";
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
+import { syncMemoryUi } from "./handle-memory";
+import { cloneMemories } from "./memory-types";
 import {
   isJourneyDirty,
   setJourneyBaseline,
@@ -19,10 +21,10 @@ import {
   loadVisibleJourneyIds,
   markJourneySyncPending,
   mergeJourneyLists,
+  parseStoredJourneys,
   saveJourneySyncMeta,
   saveJourneys,
   saveVisibleJourneyIds,
-  withSessionMode,
   type SavedJourney,
 } from "./journey-storage";
 
@@ -36,24 +38,6 @@ let intervalTimer = 0;
 let syncInFlight = false;
 let applyingRemote = false;
 let boundHost: DrawingOverlayHost | null = null;
-
-function parseJourneyList(raw: unknown): SavedJourney[] {
-  if (!Array.isArray(raw)) {
-    return [];
-  }
-  return raw
-    .filter(
-      (j): j is SavedJourney =>
-        !!j &&
-        typeof j === "object" &&
-        typeof (j as SavedJourney).id === "string" &&
-        typeof (j as SavedJourney).name === "string" &&
-        Array.isArray((j as SavedJourney).strokes) &&
-        typeof (j as SavedJourney).createdAt === "number" &&
-        typeof (j as SavedJourney).updatedAt === "number",
-    )
-    .map(withSessionMode);
-}
 
 function cloudTitle(state: CloudSyncUiState, error: string | null, email: string | null): string {
   switch (state) {
@@ -124,7 +108,7 @@ export async function refreshCloudSyncUi(host: DrawingOverlayHost): Promise<void
 }
 
 async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResponse): Promise<void> {
-  const remote = parseJourneyList(data.journeys);
+  const remote = parseStoredJourneys(data.journeys);
   const local = await loadJourneys();
   const journeys = remote.length > 0 ? mergeJourneyLists(local, remote) : local;
   const visibleIds = Array.isArray(data.visible_client_ids)
@@ -150,8 +134,10 @@ async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResp
     if (remote && host.activeJourney) {
       host.activeJourney.name = remote.name;
       host.strokes.splice(0, host.strokes.length, ...cloneStrokes(remote.strokes));
+      host.memories = cloneMemories(remote.memories ?? []);
       host.journeyNameEl.value = remote.name;
       setJourneyBaseline(host);
+      syncMemoryUi(host);
     }
   }
 

@@ -99,7 +99,6 @@ export function syncModeButtons(host: DrawingOverlayHost): void {
     btn.classList.toggle("on", mode === host.uiMode);
   });
   host.canvas.classList.toggle("mode-nav", host.uiMode === "nav");
-  host.canvas.classList.toggle("mode-add-envelope", host.uiMode === "addEnvelope");
   host.canvas.classList.toggle("mode-wall-place", host.uiMode === "wallCanvasPlace");
   syncCanvasPointerCursor(host);
   if (host.uiMode === "nav") {
@@ -199,13 +198,6 @@ function applyNavDrawMode(host: DrawingOverlayHost, m: "nav" | "draw"): void {
     foldWallCanvas(host);
   } else if (host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace") {
     cancelWallCanvas(host);
-  }
-  if (host.uiMode === "addEnvelope") {
-    host.uiMode = "nav";
-    syncModeButtons(host);
-  }
-  if (host.openEnvelopeId && m === "nav") {
-    /* keep envelope panel open in nav */
   }
   host.uiMode = m;
   syncModeButtons(host);

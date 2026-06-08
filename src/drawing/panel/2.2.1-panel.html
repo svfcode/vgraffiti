@@ -25,25 +25,22 @@
   <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay. Ctrl+M — переключить режим">Рис</button>
 </div>
 <div class="memory-section" id="vgf-memory-section">
-  <p class="memory-hint">Конверт привязан к этому месту. Вернитесь сюда — и найдёте его снова (небольшой сдвиг нормален).</p>
-  <button type="button" class="memory-add-btn" id="vgf-memory-add" hidden title="Кликните на панораму, чтобы поставить конверт">+ Конверт</button>
-  <div class="memory-status" id="vgf-memory-status" hidden></div>
+  <p class="memory-hint">Идёте дальше — новое место создаётся само. Вернётесь сюда — описание и холсты подгрузятся.</p>
+  <label class="walk-note-label" for="vgf-spot-note">Описание этого места</label>
+  <textarea id="vgf-spot-note" class="memory-draft-text" rows="3" placeholder="Что здесь интересного…" spellcheck="true"></textarea>
+  <div class="current-canvases" id="vgf-current-canvases" hidden></div>
+  <div class="walk-spot-actions">
+    <button type="button" class="envelope-wall-btn" id="vgf-envelope-wall">Холст на стене</button>
+    <button type="button" class="envelope-unfold-btn" id="vgf-envelope-unfold" hidden>Развернуть холст</button>
+    <button type="button" class="envelope-fold-btn" id="vgf-envelope-fold" hidden>Свернуть</button>
+  </div>
   <div class="envelope-detail" id="vgf-envelope-detail" hidden>
-    <div class="envelope-detail-head">Конверт</div>
-    <textarea id="vgf-envelope-note" class="memory-draft-text" rows="3" placeholder="Записка внутри конверта…" spellcheck="true"></textarea>
-    <div class="envelope-detail-actions">
-      <button type="button" class="memory-confirm-btn" id="vgf-envelope-note-save">Сохранить записку</button>
-      <button type="button" class="memory-cancel-btn" id="vgf-envelope-close">Закрыть</button>
-    </div>
     <div class="envelope-wall-actions">
-      <button type="button" class="envelope-wall-btn" id="vgf-envelope-wall">Холст на стене</button>
-      <button type="button" class="envelope-put-btn" id="vgf-envelope-put-in" hidden>В конверт</button>
-      <button type="button" class="envelope-unfold-btn" id="vgf-envelope-unfold" hidden>Развернуть холст</button>
-      <button type="button" class="envelope-fold-btn" id="vgf-envelope-fold" hidden>Свернуть</button>
+      <button type="button" class="envelope-put-btn" id="vgf-envelope-put-in" hidden>Сохранить рисунок</button>
     </div>
   </div>
-  <div class="memory-draft" id="vgf-memory-draft" hidden></div>
-  <div class="memory-list" id="vgf-memory-list" hidden role="list" aria-label="Конверты прогулки"></div>
+  <div class="places-head" id="vgf-places-head" hidden>Места с рисунками</div>
+  <div class="memory-list places-list" id="vgf-memory-list" hidden role="list" aria-label="Места с рисунками"></div>
 </div>
 <div class="journey-row" id="vgf-journey-wrap">
   <label class="journey-label" for="vgf-journey-name">Название</label>

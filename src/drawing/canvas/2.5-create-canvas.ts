@@ -2,8 +2,6 @@ import { coalescedOrSelf, pointFromEvent } from "../inc/stroke";
 import { xyCanvas, type DrawingOverlayHost } from "../2.1-overlay-types";
 import {
   confirmWallCanvasPlace,
-  onEnvelopeCanvasClick,
-  onEnvelopePlacementClick,
   onWallCanvasPlaceDown,
   onWallCanvasPlaceMove,
   onWallCanvasUnfoldDown,
@@ -67,17 +65,6 @@ function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
     return;
   }
   const { x, y } = xyCanvas(ev, host.canvas);
-
-  if (host.uiMode === "addEnvelope") {
-    ev.preventDefault();
-    onEnvelopePlacementClick(host, x, y);
-    return;
-  }
-
-  if (host.uiMode === "nav") {
-    onEnvelopeCanvasClick(host, x, y);
-    return;
-  }
 
   if (host.uiMode === "wallCanvasUnfold") {
     if (onWallCanvasUnfoldDown(host, x, y, ev.pointerId)) {

@@ -33,6 +33,22 @@ export function wallCanvasScreenRect(
   };
 }
 
+/** Сдвиг рамки холста в пикселях из‑за offsetU/V (для рисунка на «бумаге»). */
+export function wallCanvasOffsetPx(
+  wc: Pick<WallCanvas, "u" | "v" | "w" | "h" | "offsetU" | "offsetV">,
+  canvas: HTMLCanvasElement,
+  frame: ViewportFrame,
+): { dx: number; dy: number } {
+  const ou = wc.offsetU ?? 0;
+  const ov = wc.offsetV ?? 0;
+  if (ou === 0 && ov === 0) {
+    return { dx: 0, dy: 0 };
+  }
+  const base = wallCanvasScreenRect({ ...wc, offsetU: 0, offsetV: 0 }, canvas, frame);
+  const shifted = wallCanvasScreenRect(wc, canvas, frame);
+  return { dx: shifted.x - base.x, dy: shifted.y - base.y };
+}
+
 export function isPointInWallRect(
   x: number,
   y: number,
@@ -77,15 +93,20 @@ export function renderWallCanvasStrokes(
   wc: WallCanvas,
   cam: StreetViewContext,
   canvas: HTMLCanvasElement,
-  frame: ViewportFrame,
+  mapFrame: ViewportFrame,
+  memFrame: ViewportFrame = mapFrame,
 ): void {
-  const screen = wallCanvasScreenRect(wc, canvas, frame);
+  const screen = wallCanvasScreenRect(wc, canvas, memFrame);
+  const { dx, dy } = wallCanvasOffsetPx(wc, canvas, memFrame);
   ctx.save();
   ctx.beginPath();
   ctx.rect(screen.x, screen.y, screen.w, screen.h);
   ctx.clip();
+  if (dx !== 0 || dy !== 0) {
+    ctx.translate(dx, dy);
+  }
   for (const s of wc.strokes) {
-    const projected = projectStreetViewStroke(s, cam, frame);
+    const projected = projectStreetViewStroke(s, cam, mapFrame);
     if (!projected) {
       continue;
     }

@@ -1,7 +1,9 @@
 import { broadcastMapCenter } from "../../lib/map-live-probe";
+import { readStreetViewContext } from "../../lib/streetview-context";
 import { cloneStrokes, type DrawingOverlayHost, type StoredStroke } from "../2.1-overlay-types";
 import { cloneMemories } from "../inc/memory-types";
-import { syncMemoryUi } from "../inc/handle-memory";
+import { syncMemoryUi, onStreetViewPovChanged } from "../inc/handle-memory";
+import { navigateToStreetViewPov } from "../inc/streetview-nav";
 import {
   getStrokesGeoCenter,
   nudgeDirectionToPixels,
@@ -69,10 +71,12 @@ export function isJourneyDirty(host: DrawingOverlayHost): boolean {
       return true;
     }
     if (host.activeWallCanvas || host.wallCanvasDraftRect) {
-      const baselineMem = host.openEnvelopeId
-        ? host.journeyBaseline.memories.find((m) => m.id === host.openEnvelopeId)
+      const baselineLoc = host.openLocationId
+        ? host.journeyBaseline.memories.find((m) => m.id === host.openLocationId)
         : null;
-      const baseStrokes = baselineMem?.wallCanvas?.strokes ?? [];
+      const baseStrokes =
+        baselineLoc?.canvases.flatMap((c) => c.strokes) ??
+        (baselineLoc?.wallCanvas?.strokes ?? []);
       if (!strokesEqual(host.strokes, baseStrokes)) {
         return true;
       }
@@ -153,7 +157,7 @@ export function openJourneyNudge(host: DrawingOverlayHost): void {
   refreshJourneyList(host);
 }
 
-function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney): void {
+async function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney): Promise<void> {
   closeJourneyNudge(host);
   host.activeJourney = {
     id: journey.id,
@@ -162,32 +166,55 @@ function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney): voi
   };
   host.strokes.splice(0, host.strokes.length, ...cloneStrokes(journey.strokes));
   host.memories = cloneMemories(journey.memories ?? []);
-  host.openEnvelopeId = null;
+  host.openLocationId = null;
+  host.lastPanoramaKey = null;
+  host.unfoldCanvasIndex = 0;
   host.wallCanvasDraftRect = null;
   host.activeWallCanvas = null;
-  host.unfoldEnvelopeId = null;
+  host.unfoldLocationId = null;
   host.wallCanvasDrag = null;
+  host.spotNoteEl.value = "";
   resetJourneyHistory(host);
   setJourneyBaseline(host);
   host.journeyNameEl.value = journey.name;
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
-  syncMemoryUi(host);
   host.syncStrokesToBridge();
   host.scheduleRedraw();
+
+  if (host.viewportMode === "streetview") {
+    onStreetViewPovChanged(host);
+  } else {
+    syncMemoryUi(host);
+  }
+
+  const firstArt = host.memories.find((m) => m.canvases.some((c) => c.strokes.length > 0));
+  if (host.viewportMode === "streetview" && firstArt && !host.openLocationId) {
+    const ok = await navigateToStreetViewPov(firstArt.anchor);
+    if (ok) {
+      const next = readStreetViewContext();
+      if (next) {
+        host.streetViewContext = next;
+      }
+      onStreetViewPovChanged(host);
+      host.scheduleRedraw();
+    }
+  }
 }
 
 export function startNewActiveJourney(host: DrawingOverlayHost): void {
   initActiveJourney(host);
   host.strokes.length = 0;
   host.memories = [];
-  host.openEnvelopeId = null;
+  host.openLocationId = null;
+  host.lastPanoramaKey = null;
+  host.unfoldCanvasIndex = 0;
   host.wallCanvasDraftRect = null;
   host.activeWallCanvas = null;
-  host.unfoldEnvelopeId = null;
+  host.unfoldLocationId = null;
   host.wallCanvasDrag = null;
+  host.spotNoteEl.value = "";
   if (
-    host.uiMode === "addEnvelope" ||
     host.uiMode === "wallCanvas" ||
     host.uiMode === "wallCanvasPlace" ||
     host.uiMode === "wallCanvasUnfold"
@@ -201,6 +228,9 @@ export function startNewActiveJourney(host: DrawingOverlayHost): void {
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
   syncMemoryUi(host);
+  if (host.viewportMode === "streetview") {
+    onStreetViewPovChanged(host);
+  }
   host.syncStrokesToBridge();
   host.scheduleRedraw();
 }
@@ -231,7 +261,7 @@ export async function switchToJourneyId(
   }
   const saved = host.savedJourneys.find((j) => j.id === targetId);
   if (saved) {
-    applySavedJourney(host, saved);
+    await applySavedJourney(host, saved);
     if (options?.locate) {
       locateJourneyById(host, targetId);
     }
@@ -417,6 +447,7 @@ function refreshJourneyList(host: DrawingOverlayHost): void {
 
     const row = document.createElement("div");
     row.className = "journey-item";
+    row.dataset.journeyId = j.id;
     if (isActive) {
       row.classList.add("is-active");
     }
@@ -688,15 +719,19 @@ export function bindJourneyPanelEvents(host: DrawingOverlayHost): void {
       return;
     }
     const btn = t.closest<HTMLButtonElement>(".journey-item-icon");
-    if (!btn || btn.disabled) {
+    if (btn && !btn.disabled) {
+      const id = btn.dataset.journeyId;
+      const action = btn.dataset.action;
+      if (id && action) {
+        void handleJourneyListAction(host, id, action);
+      }
       return;
     }
-    const id = btn.dataset.journeyId;
-    const action = btn.dataset.action;
-    if (!id || !action) {
-      return;
+    const row = t.closest<HTMLElement>(".journey-item");
+    const rowId = row?.dataset.journeyId;
+    if (rowId) {
+      void switchToJourneyId(host, rowId);
     }
-    void handleJourneyListAction(host, id, action);
   });
 
   const savedPick = host.journeyWrap.querySelector<HTMLDetailsElement>("#vgf-journey-saved-pick");

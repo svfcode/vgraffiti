@@ -103,6 +103,42 @@ export function streetViewContextMoved(
   return false;
 }
 
+const GOOGLE_SV_AT =
+  /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),3a,(-?\d+(?:\.\d+)?)y,(-?\d+(?:\.\d+)?)h,(-?\d+(?:\.\d+)?)t/i;
+const GOOGLE_MAP_AT = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?),(\d+(?:\.\d+)?)z/i;
+
+function roundSv(n: number): string {
+  const r = Math.round(n * 100) / 100;
+  return Number.isInteger(r) ? String(r) : r.toFixed(2).replace(/\.?0+$/, "");
+}
+
+/** Сегмент `@lat,lng,3a,fovy,headingh,pitcht` для Google Maps Street View. */
+export function formatGoogleStreetViewAt(ctx: StreetViewContext): string {
+  const fov = Math.max(10, Math.min(120, ctx.fov));
+  const heading = normalizeHeading(ctx.heading);
+  return `@${ctx.lat},${ctx.lng},3a,${roundSv(fov)}y,${roundSv(heading)}h,${roundSv(ctx.pitch)}t`;
+}
+
+/** Подставляет ракурс Street View в URL Google Maps (без навигации). */
+export function buildGoogleStreetViewHref(href: string, ctx: StreetViewContext): string | null {
+  if (!/google\./i.test(href) || !/\/maps/i.test(href)) {
+    return null;
+  }
+  const at = formatGoogleStreetViewAt(ctx);
+  if (GOOGLE_SV_AT.test(href)) {
+    return href.replace(GOOGLE_SV_AT, at);
+  }
+  if (GOOGLE_MAP_AT.test(href)) {
+    return href.replace(GOOGLE_MAP_AT, at);
+  }
+  const dataIdx = href.indexOf("/data=");
+  if (dataIdx > 0 && /!1e1!/i.test(href)) {
+    const base = href.slice(0, dataIdx).replace(/@[^/]*$/, "");
+    return `${base}${at}${href.slice(dataIdx)}`;
+  }
+  return null;
+}
+
 export function normalizeHeading(deg: number): number {
   let h = deg % 360;
   if (h < 0) {

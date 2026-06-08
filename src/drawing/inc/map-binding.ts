@@ -14,6 +14,7 @@ import {
 } from "../../lib/map-live-probe";
 import type { GeoStrokePayload } from "../../lib/map-bridge-protocol";
 import { getDisplayStrokes, syncJourneyPanel } from "../handlers/2.6.5-handle-journeys";
+import { onStreetViewPovChanged } from "./handle-memory";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 
 /** Время последнего live-обновления от page-bridge (ymaps). */
@@ -155,6 +156,7 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   const urlPoll = window.setInterval(() => {
     if (host.viewportMode === "streetview") {
       if (syncStreetViewContext(host)) {
+        onStreetViewPovChanged(host);
         host.scheduleRedraw();
       }
       return;
@@ -180,6 +182,7 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
       return;
     }
     if (syncStreetViewContext(host)) {
+      onStreetViewPovChanged(host);
       host.scheduleRedraw();
     }
   }, 32);

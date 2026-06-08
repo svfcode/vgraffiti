@@ -15,6 +15,8 @@ export const ZOOM_STATE_MSG = "vgf:mapZoomState";
 export const ZOOM_VISUAL_MSG = "vgf:mapZoomVisual";
 /** Overlay → bridge: перенести центр карты к lat/lng. */
 export const SET_CENTER_MSG = "vgf:mapSetCenter";
+/** Overlay → bridge: перейти к ракурсу Street View (Google Maps). */
+export const SET_STREET_VIEW_POV_MSG = "vgf:streetViewSetPov";
 
 /** Гео-штрих для нативного рендера (подмножество StoredStroke без pressure). */
 export type GeoStrokePayload =
@@ -76,4 +78,13 @@ export type SetCenterMessage = {
   lat: number;
   lng: number;
   zoom?: number;
+};
+
+export type SetStreetViewPovMessage = {
+  type: typeof SET_STREET_VIEW_POV_MSG;
+  lat: number;
+  lng: number;
+  fov: number;
+  heading: number;
+  pitch: number;
 };

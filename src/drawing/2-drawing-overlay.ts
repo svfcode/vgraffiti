@@ -40,7 +40,7 @@ import {
   toggleNavDrawMode,
   wantsSizeCursor,
 } from "./handlers/2.6.2-handle-tools";
-import type { MemoryStop, WallCanvas } from "./inc/memory-types";
+import type { WalkLocation, WallCanvas } from "./inc/memory-types";
 import type { SavedJourney } from "./inc/journey-storage";
 import type {
   ActiveJourney,
@@ -108,14 +108,11 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly journeyNameEl: HTMLInputElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
-  readonly memoryAddBtn: HTMLButtonElement;
-  readonly memoryStatusEl: HTMLDivElement;
+  readonly spotNoteEl: HTMLTextAreaElement;
+  readonly currentCanvasesEl: HTMLDivElement;
+  readonly placesHeadEl: HTMLDivElement;
   readonly memoryListEl: HTMLDivElement;
-  readonly memoryDraftWrap: HTMLDivElement;
   readonly envelopeDetailWrap: HTMLDivElement;
-  readonly envelopeNoteEl: HTMLTextAreaElement;
-  readonly envelopeNoteSaveBtn: HTMLButtonElement;
-  readonly envelopeCloseBtn: HTMLButtonElement;
   readonly envelopeWallBtn: HTMLButtonElement;
   readonly envelopeUnfoldBtn: HTMLButtonElement;
   readonly envelopeFoldBtn: HTMLButtonElement;
@@ -126,11 +123,13 @@ export class DrawingOverlay implements DrawingOverlayHost {
   savedJourneys: SavedJourney[] = [];
   selectedJourneyIds = new Set<string>();
   journeyNudgeOpen = false;
-  memories: MemoryStop[] = [];
-  openEnvelopeId: string | null = null;
+  memories: WalkLocation[] = [];
+  openLocationId: string | null = null;
   wallCanvasDraftRect: { u0: number; v0: number; u1: number; v1: number } | null = null;
   activeWallCanvas: WallCanvas | null = null;
-  unfoldEnvelopeId: string | null = null;
+  unfoldLocationId: string | null = null;
+  unfoldCanvasIndex = 0;
+  lastPanoramaKey: string | null = null;
   wallCanvasDrag: { pointerId: number; startX: number; startY: number; baseOffsetU: number; baseOffsetV: number } | null = null;
   viewportMode: ViewportMode = detectViewportMode();
   streetViewContext: StreetViewContext | null = readStreetViewContext();
@@ -196,14 +195,11 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.journeyNameEl = panel.journeyNameEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;
-    this.memoryAddBtn = panel.memoryAddBtn;
-    this.memoryStatusEl = panel.memoryStatusEl;
+    this.spotNoteEl = panel.spotNoteEl;
+    this.currentCanvasesEl = panel.currentCanvasesEl;
+    this.placesHeadEl = panel.placesHeadEl;
     this.memoryListEl = panel.memoryListEl;
-    this.memoryDraftWrap = panel.memoryDraftWrap;
     this.envelopeDetailWrap = panel.envelopeDetailWrap;
-    this.envelopeNoteEl = panel.envelopeNoteEl;
-    this.envelopeNoteSaveBtn = panel.envelopeNoteSaveBtn;
-    this.envelopeCloseBtn = panel.envelopeCloseBtn;
     this.envelopeWallBtn = panel.envelopeWallBtn;
     this.envelopeUnfoldBtn = panel.envelopeUnfoldBtn;
     this.envelopeFoldBtn = panel.envelopeFoldBtn;
