@@ -1,4 +1,5 @@
 import { isEditableKeyTarget, type DrawingOverlayHost } from "../2.1-overlay-types";
+import { nudgeSvCalibration } from "../../lib/streetview-projection";
 
 type ShortcutEntry = {
   keys: string[];
@@ -119,8 +120,45 @@ function bindShortcutsHelpEvents(host: DrawingOverlayHost): void {
   });
 }
 
+/** Подбор масштаба проекции Street View: [ ] — calX, ; ' — calY. Шаг 0.05. */
+function handleCalibrationKey(host: DrawingOverlayHost, e: KeyboardEvent): boolean {
+  const step = 0.05;
+  let dx = 0;
+  let dy = 0;
+  switch (e.key) {
+    case "[":
+      dx = -step;
+      break;
+    case "]":
+      dx = step;
+      break;
+    case ";":
+      dy = -step;
+      break;
+    case "'":
+      dy = step;
+      break;
+    default:
+      return false;
+  }
+  nudgeSvCalibration(dx, dy);
+  host.scheduleRedraw();
+  e.preventDefault();
+  e.stopPropagation();
+  return true;
+}
+
 function onWindowKeyDown(host: DrawingOverlayHost, e: KeyboardEvent): void {
   if (e.defaultPrevented) {
+    return;
+  }
+  if (
+    host.viewportMode === "streetview" &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !isEditableKeyTarget(e.target) &&
+    handleCalibrationKey(host, e)
+  ) {
     return;
   }
   const mod = e.ctrlKey || e.metaKey;

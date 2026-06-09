@@ -8,7 +8,7 @@ import {
 } from "../../lib/streetview-context";
 import {
   clonePanoDrawings,
-  filterScreenStrokes,
+  filterAnchoredStrokes,
   findPanoDrawing,
   isSameSpot,
   spotKeyFromSv,
@@ -57,7 +57,7 @@ function loadStrokesForSpot(host: DrawingOverlayHost, spotKey: string, sv: Stree
     host.strokes.splice(
       0,
       host.strokes.length,
-      ...structuredClone(filterScreenStrokes(entry.strokes)),
+      ...structuredClone(filterAnchoredStrokes(entry.strokes)),
     );
   } else {
     host.strokes.length = 0;

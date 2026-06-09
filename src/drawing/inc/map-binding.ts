@@ -170,13 +170,14 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
     }
   }, URL_POLL_MS);
 
+  // POV-привязка к сцене: часто перечитываем ракурс из URL и репроецируем штрихи.
   const svPoll = window.setInterval(() => {
     if (host.viewportMode !== "streetview") {
       return;
     }
     syncSpotFromPage(host);
     host.scheduleRedraw();
-  }, 150);
+  }, 60);
 
   const onPanoMessage = (event: MessageEvent): void => {
     if (event.source !== window || !event.data || typeof event.data !== "object") {

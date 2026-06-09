@@ -71,12 +71,12 @@ export function isSameSpot(
   return isSameLocation(a, b);
 }
 
-export function isScreenStroke(stroke: StoredStroke): boolean {
-  return stroke.coordSpace === "screen";
+export function isAnchoredStroke(stroke: StoredStroke): boolean {
+  return stroke.coordSpace === "streetview";
 }
 
-export function filterScreenStrokes(strokes: StoredStroke[]): StoredStroke[] {
-  return strokes.filter(isScreenStroke);
+export function filterAnchoredStrokes(strokes: StoredStroke[]): StoredStroke[] {
+  return strokes.filter(isAnchoredStroke);
 }
 
 export function findPanoDrawingBySpotKey(
@@ -113,7 +113,7 @@ export function upsertPanoDrawingForSpotKey(
   strokes: StoredStroke[],
   sv?: StreetViewContext | null,
 ): void {
-  const screenStrokes = filterScreenStrokes(strokes);
+  const anchoredStrokes = filterAnchoredStrokes(strokes);
   const parsed = parseSpotKey(spotKey);
   let entry = findPanoDrawingBySpotKey(drawings, spotKey);
   if (!entry) {
@@ -138,7 +138,7 @@ export function upsertPanoDrawingForSpotKey(
   if (parsed.panoId) {
     entry.panoId = parsed.panoId;
   }
-  entry.strokes = structuredClone(screenStrokes);
+  entry.strokes = structuredClone(anchoredStrokes);
 }
 
 export function clonePanoDrawings(src: PanoDrawing[]): PanoDrawing[] {
@@ -156,7 +156,7 @@ export function normalizePanoDrawing(raw: unknown): PanoDrawing | null {
     return null;
   }
   const panoId = typeof o.panoId === "string" && o.panoId ? o.panoId : undefined;
-  const strokes = Array.isArray(o.strokes) ? filterScreenStrokes(o.strokes as StoredStroke[]) : [];
+  const strokes = Array.isArray(o.strokes) ? filterAnchoredStrokes(o.strokes as StoredStroke[]) : [];
   return { lat, lng, panoId, strokes };
 }
 

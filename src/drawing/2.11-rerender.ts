@@ -4,8 +4,10 @@ import { getStreetViewContext, getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
-import { spotSignatureFromHref } from "../lib/streetview-context";
+import { spotSignatureFromHref, type StreetViewContext } from "../lib/streetview-context";
 import { spotKeyFromSv } from "./inc/pano-types";
+import { getStreetViewDrawFrame, projectStreetViewStroke } from "./inc/sv-stroke";
+import { getSvCalibration } from "../lib/streetview-projection";
 import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
 
 /** Временный отладочный HUD для диагностики смены панорамы. */
@@ -24,11 +26,13 @@ function drawDebugHud(host: DrawingOverlayHost): void {
   const live = sv ? (spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv)) : "—";
   const active = host.activeSpotKey ?? "—";
   const match = active === live;
+  const cal = getSvCalibration();
   const lines = [
     `mode=${host.viewportMode} ui=${host.uiMode}`,
     `live   = ${live.slice(0, 40)}`,
     `active = ${active.slice(0, 40)}`,
     `match=${match} strokes=${host.strokes.length}`,
+    `calX=${cal.x.toFixed(2)} [ ]   calY=${cal.y.toFixed(2)} ; '`,
   ];
   c.save();
   c.font = "12px monospace";
@@ -46,19 +50,26 @@ function drawDebugHud(host: DrawingOverlayHost): void {
   c.restore();
 }
 
-function renderScreenStrokeList(ctx: CanvasRenderingContext2D, strokes: StoredStroke[]): void {
+function renderSvStrokeList(
+  ctx: CanvasRenderingContext2D,
+  strokes: StoredStroke[],
+  cam: StreetViewContext,
+  host: DrawingOverlayHost,
+): void {
+  const frame = getStreetViewDrawFrame(host.canvas);
   for (const s of strokes) {
-    if (s.coordSpace !== "screen") {
+    const p = projectStreetViewStroke(s, cam, frame);
+    if (!p) {
       continue;
     }
-    if (s.kind === "brush") {
-      renderStroke(ctx, s.points, { color: s.color, size: s.size });
-    } else if (s.kind === "eraser") {
-      renderEraserStroke(ctx, s.points, s.size);
-    } else if (s.kind === "arrow") {
-      drawArrow(ctx, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
+    if (p.kind === "brush") {
+      renderStroke(ctx, p.points, { color: p.color, size: p.size });
+    } else if (p.kind === "eraser") {
+      renderEraserStroke(ctx, p.points, p.size);
+    } else if (p.kind === "arrow") {
+      drawArrow(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
     } else {
-      drawSquareStroke(ctx, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
+      drawSquareStroke(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
     }
   }
 }
@@ -80,7 +91,7 @@ export function redraw(host: DrawingOverlayHost): void {
       host.activeSpotKey &&
       host.activeSpotKey === (spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv))
     ) {
-      renderScreenStrokeList(c, host.strokes);
+      renderSvStrokeList(c, host.strokes, sv, host);
     }
     if (VGF_DEBUG_SV) {
       drawDebugHud(host);

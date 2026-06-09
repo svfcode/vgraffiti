@@ -24,17 +24,17 @@ export function mapZoom(map: MapContext, fallback = 16): number {
 
 export type ViewportFrame = { cx: number; cy: number; w: number; h: number };
 
-/** Canvas панорамы Google Street View (не overlay расширения). */
+/** Canvas панорамы Google Street View (не overlay расширения — он в shadow DOM). */
 export function getStreetViewViewportFrame(): ViewportFrame | null {
-  const scene =
+  const known =
     document.querySelector(".widget-scene canvas") ??
     document.querySelector(".scene-core-webgl canvas") ??
-    document.querySelector(".widget-scene-canvas canvas") ??
-    document.querySelector(".widget-scene");
-  if (!scene) {
+    document.querySelector(".widget-scene-canvas canvas");
+  const el = known ?? largestCanvas();
+  if (!el) {
     return null;
   }
-  const r = scene.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
   if (r.width < 120 || r.height < 120) {
     return null;
   }
@@ -44,6 +44,21 @@ export function getStreetViewViewportFrame(): ViewportFrame | null {
     w: r.width,
     h: r.height,
   };
+}
+
+/** Самый большой видимый canvas в основном документе (overlay расширения в shadow DOM). */
+function largestCanvas(): HTMLCanvasElement | null {
+  let best: HTMLCanvasElement | null = null;
+  let bestArea = 0;
+  for (const c of Array.from(document.querySelectorAll("canvas"))) {
+    const r = c.getBoundingClientRect();
+    const area = r.width * r.height;
+    if (area > bestArea && r.width >= 200 && r.height >= 200) {
+      best = c;
+      bestArea = area;
+    }
+  }
+  return best;
 }
 
 /** Кадр для проекции в Street View: панорама → fallback. */

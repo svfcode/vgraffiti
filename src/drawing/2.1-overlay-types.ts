@@ -56,9 +56,11 @@ type GeoBrushStroke = {
 type SvBrushStroke = {
   kind: "brush";
   coordSpace: "streetview";
-  points: ViewPoint[];
+  points: StrokePoint[];
   color: string;
   size: number;
+  aHeading: number;
+  aPitch: number;
   fov: number;
 };
 type GeoEraserStroke = {
@@ -71,8 +73,10 @@ type GeoEraserStroke = {
 type SvEraserStroke = {
   kind: "eraser";
   coordSpace: "streetview";
-  points: ViewPoint[];
+  points: StrokePoint[];
   size: number;
+  aHeading: number;
+  aPitch: number;
   fov: number;
 };
 type GeoArrowStroke = {
@@ -89,12 +93,14 @@ type GeoArrowStroke = {
 type SvArrowStroke = {
   kind: "arrow";
   coordSpace: "streetview";
-  h0: number;
-  p0: number;
-  h1: number;
-  p1: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
   color: string;
   lw: number;
+  aHeading: number;
+  aPitch: number;
   fov: number;
 };
 type GeoSquareStroke = {
@@ -111,12 +117,14 @@ type GeoSquareStroke = {
 type SvSquareStroke = {
   kind: "square";
   coordSpace: "streetview";
-  h0: number;
-  p0: number;
-  h1: number;
-  p1: number;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
   color: string;
   lw: number;
+  aHeading: number;
+  aPitch: number;
   fov: number;
 };
 

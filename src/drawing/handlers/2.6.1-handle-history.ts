@@ -113,10 +113,13 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     if (isSvDraw && sv) {
       host.strokes.push({
         kind: "brush",
-        coordSpace: "screen",
+        coordSpace: "streetview",
         points: structuredClone(cur.points),
         color: host.fgColor,
         size: host.getBrushSize(),
+        aHeading: sv.heading,
+        aPitch: sv.pitch,
+        fov: sv.fov,
       });
     } else if (map) {
       host.strokes.push({
@@ -132,9 +135,12 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     if (isSvDraw && sv) {
       host.strokes.push({
         kind: "eraser",
-        coordSpace: "screen",
+        coordSpace: "streetview",
         points: structuredClone(cur.points),
         size: host.getEraserSize(),
+        aHeading: sv.heading,
+        aPitch: sv.pitch,
+        fov: sv.fov,
       });
     } else if (map) {
       host.strokes.push({
@@ -151,13 +157,16 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
       if (isSvDraw && sv) {
         host.strokes.push({
           kind: "arrow",
-          coordSpace: "screen",
+          coordSpace: "streetview",
           x0,
           y0,
           x1,
           y1,
           color: host.fgColor,
           lw: host.getBrushSize(),
+          aHeading: sv.heading,
+          aPitch: sv.pitch,
+          fov: sv.fov,
         });
       } else if (map) {
         const p0 = screenToMapGeo(x0, y0, map, frame);
@@ -181,13 +190,16 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
       if (isSvDraw && sv) {
         host.strokes.push({
           kind: "square",
-          coordSpace: "screen",
+          coordSpace: "streetview",
           x0,
           y0,
           x1,
           y1,
           color: host.fgColor,
           lw: host.getBrushSize(),
+          aHeading: sv.heading,
+          aPitch: sv.pitch,
+          fov: sv.fov,
         });
       } else if (map) {
         const p0 = screenToMapGeo(x0, y0, map, frame);

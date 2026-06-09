@@ -34,7 +34,7 @@ export function parseGoogleStreetViewUrl(href: string): StreetViewContext | null
   const lng = parseNum(m[2]);
   const fov = parseNum(m[3]);
   const heading = parseNum(m[4]);
-  const pitch = parseNum(m[5]);
+  const tilt = parseNum(m[5]);
   if (lat == null || lng == null) {
     return null;
   }
@@ -44,8 +44,18 @@ export function parseGoogleStreetViewUrl(href: string): StreetViewContext | null
     lng,
     fov: fov != null && fov > 0 ? fov : 90,
     heading: heading ?? 0,
-    pitch: pitch ?? 90,
+    pitch: tiltToPitch(tilt),
   };
+}
+
+/** URL Google использует tilt `t` (90 = горизонт). pitch для проекции растёт вместе с t. */
+function tiltToPitch(tilt: number | null): number {
+  return tilt == null ? 0 : tilt - 90;
+}
+
+/** Обратное к {@link tiltToPitch} для сборки URL. */
+function pitchToTilt(pitch: number): number {
+  return pitch + 90;
 }
 
 const SV_AT_POV =
@@ -57,11 +67,11 @@ function parsePovFromHref(href: string): Pick<StreetViewContext, "fov" | "headin
   if (at) {
     const fov = parseNum(at[3]);
     const heading = parseNum(at[4]);
-    const pitch = parseNum(at[5]);
+    const tilt = parseNum(at[5]);
     return {
       fov: fov != null && fov > 0 ? fov : 90,
       heading: heading ?? 0,
-      pitch: pitch ?? 90,
+      pitch: tiltToPitch(tilt),
     };
   }
   const dataIdx = href.indexOf("/data=");
@@ -70,21 +80,21 @@ function parsePovFromHref(href: string): Pick<StreetViewContext, "fov" | "headin
   if (emb) {
     const fov = parseNum(emb[1]);
     const heading = parseNum(emb[2]);
-    const pitch = parseNum(emb[3]);
+    const tilt = parseNum(emb[3]);
     return {
       fov: fov != null && fov > 0 ? fov : 90,
       heading: heading ?? 0,
-      pitch: pitch ?? 90,
+      pitch: tiltToPitch(tilt),
     };
   }
   const heading = parseNum(data.match(/!3f(-?\d+(?:\.\d+)?)/)?.[1]);
-  const pitch = parseNum(data.match(/!4b(-?\d+(?:\.\d+)?)/)?.[1]);
+  const tilt = parseNum(data.match(/!4b(-?\d+(?:\.\d+)?)/)?.[1]);
   const fov = parseNum(data.match(/!2z([\d.]+)/)?.[1]);
-  if (heading != null || pitch != null || fov != null) {
+  if (heading != null || tilt != null || fov != null) {
     return {
       fov: fov != null && fov > 0 ? fov : 90,
       heading: heading ?? 0,
-      pitch: pitch ?? 90,
+      pitch: tiltToPitch(tilt),
     };
   }
   return null;
@@ -199,7 +209,7 @@ export function readStreetViewContext(): StreetViewContext | null {
     lng,
     fov: at?.fov ?? pov?.fov ?? 90,
     heading: at?.heading ?? pov?.heading ?? 0,
-    pitch: at?.pitch ?? pov?.pitch ?? 90,
+    pitch: at?.pitch ?? pov?.pitch ?? 0,
   };
 }
 
@@ -238,7 +248,7 @@ function roundSv(n: number): string {
 export function formatGoogleStreetViewAt(ctx: StreetViewContext): string {
   const fov = Math.max(10, Math.min(120, ctx.fov));
   const heading = normalizeHeading(ctx.heading);
-  return `@${ctx.lat},${ctx.lng},3a,${roundSv(fov)}y,${roundSv(heading)}h,${roundSv(ctx.pitch)}t`;
+  return `@${ctx.lat},${ctx.lng},3a,${roundSv(fov)}y,${roundSv(heading)}h,${roundSv(pitchToTilt(ctx.pitch))}t`;
 }
 
 /** Подставляет ракурс Street View в URL Google Maps (без навигации). */
