@@ -40,7 +40,7 @@ import {
   toggleNavDrawMode,
   wantsSizeCursor,
 } from "./handlers/2.6.2-handle-tools";
-import type { WalkLocation, WallCanvas } from "./inc/memory-types";
+import type { PanoDrawing } from "./inc/pano-types";
 import type { SavedJourney } from "./inc/journey-storage";
 import type {
   ActiveJourney,
@@ -106,31 +106,17 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly journeyNudgeWrap: HTMLDivElement;
   readonly journeyNewBtn: HTMLButtonElement;
   readonly journeyNameEl: HTMLInputElement;
+  readonly journeyDiaryEl: HTMLTextAreaElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
-  readonly spotNoteEl: HTMLTextAreaElement;
-  readonly currentCanvasesEl: HTMLDivElement;
-  readonly placesHeadEl: HTMLDivElement;
-  readonly memoryListEl: HTMLDivElement;
-  readonly envelopeDetailWrap: HTMLDivElement;
-  readonly envelopeWallBtn: HTMLButtonElement;
-  readonly envelopeUnfoldBtn: HTMLButtonElement;
-  readonly envelopeFoldBtn: HTMLButtonElement;
-  readonly envelopePutInBtn: HTMLButtonElement;
 
   activeJourney: ActiveJourney | null = null;
   journeyBaseline: JourneyBaseline | null = null;
   savedJourneys: SavedJourney[] = [];
   selectedJourneyIds = new Set<string>();
   journeyNudgeOpen = false;
-  memories: WalkLocation[] = [];
-  openLocationId: string | null = null;
-  wallCanvasDraftRect: { u0: number; v0: number; u1: number; v1: number } | null = null;
-  activeWallCanvas: WallCanvas | null = null;
-  unfoldLocationId: string | null = null;
-  unfoldCanvasIndex = 0;
-  lastPanoramaKey: string | null = null;
-  wallCanvasDrag: { pointerId: number; startX: number; startY: number; baseOffsetU: number; baseOffsetV: number } | null = null;
+  panoDrawings: PanoDrawing[] = [];
+  activeSpotKey: string | null = null;
   viewportMode: ViewportMode = detectViewportMode();
   streetViewContext: StreetViewContext | null = readStreetViewContext();
   activeTool: ToolId = "brush";
@@ -193,17 +179,9 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.journeyNudgeWrap = panel.journeyNudgeWrap;
     this.journeyNewBtn = panel.journeyNewBtn;
     this.journeyNameEl = panel.journeyNameEl;
+    this.journeyDiaryEl = panel.journeyDiaryEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;
-    this.spotNoteEl = panel.spotNoteEl;
-    this.currentCanvasesEl = panel.currentCanvasesEl;
-    this.placesHeadEl = panel.placesHeadEl;
-    this.memoryListEl = panel.memoryListEl;
-    this.envelopeDetailWrap = panel.envelopeDetailWrap;
-    this.envelopeWallBtn = panel.envelopeWallBtn;
-    this.envelopeUnfoldBtn = panel.envelopeUnfoldBtn;
-    this.envelopeFoldBtn = panel.envelopeFoldBtn;
-    this.envelopePutInBtn = panel.envelopePutInBtn;
 
     document.documentElement.appendChild(host);
   }

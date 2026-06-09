@@ -4,9 +4,13 @@ import {
   strokeSizeAtFov,
   viewDirectionToScreen,
 } from "../../lib/streetview-projection";
-import { getMapViewportFrame, type ViewportFrame } from "../../lib/map-projection";
+import { getOverlayViewportFrame, type ViewportFrame } from "../../lib/map-projection";
 import type { StoredStroke, ViewPoint } from "../2.1-overlay-types";
 import type { StrokePoint } from "./stroke";
+
+export function getStreetViewDrawFrame(canvas?: HTMLCanvasElement | null): ViewportFrame {
+  return getOverlayViewportFrame(canvas);
+}
 
 export function isStreetViewStroke(stroke: StoredStroke): boolean {
   return stroke.coordSpace === "streetview";
@@ -17,7 +21,7 @@ export function screenPointToView(
   y: number,
   pressure: number,
   cam: StreetViewContext,
-  frame: ViewportFrame = getMapViewportFrame(),
+  frame: ViewportFrame,
 ): ViewPoint {
   const { heading, pitch } = screenToViewDirection(x, y, cam, frame);
   return [heading, pitch, pressure];
@@ -26,7 +30,7 @@ export function screenPointToView(
 export function viewPointToScreen(
   point: ViewPoint,
   cam: StreetViewContext,
-  frame: ViewportFrame = getMapViewportFrame(),
+  frame: ViewportFrame,
 ): StrokePoint | null {
   const pos = viewDirectionToScreen(point[0], point[1], cam, frame);
   if (!pos) {
@@ -38,7 +42,7 @@ export function viewPointToScreen(
 export function screenPointsToView(
   points: StrokePoint[],
   cam: StreetViewContext,
-  frame: ViewportFrame = getMapViewportFrame(),
+  frame: ViewportFrame,
 ): ViewPoint[] {
   return points.map(([x, y, p]) => screenPointToView(x, y, p, cam, frame));
 }
@@ -46,7 +50,7 @@ export function screenPointsToView(
 export function viewPointsToScreen(
   points: ViewPoint[],
   cam: StreetViewContext,
-  frame: ViewportFrame = getMapViewportFrame(),
+  frame: ViewportFrame,
 ): StrokePoint[] {
   const out: StrokePoint[] = [];
   for (const pt of points) {
@@ -72,7 +76,7 @@ function scaledSvSize(stroke: StoredStroke, cam: StreetViewContext): number {
 export function projectStreetViewStroke(
   stroke: StoredStroke,
   cam: StreetViewContext,
-  frame: ViewportFrame = getMapViewportFrame(),
+  frame: ViewportFrame,
 ):
   | { kind: "brush"; points: StrokePoint[]; color: string; size: number }
   | { kind: "eraser"; points: StrokePoint[]; size: number }

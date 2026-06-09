@@ -14,13 +14,19 @@ import {
   PAN_VISUAL_MSG,
   RENDER_MODE_MSG,
   SET_CENTER_MSG,
+  PANO_CONTEXT_MSG,
   SET_STREET_VIEW_POV_MSG,
   STROKES_MSG,
   ZOOM_STATE_MSG,
   ZOOM_VISUAL_MSG,
   type GeoStrokePayload,
 } from "./map-bridge-protocol";
-import { buildGoogleStreetViewHref, type StreetViewContext } from "./streetview-context";
+import {
+  buildGoogleStreetViewHref,
+  parsePanoIdFromHref,
+  parseStreetViewPanoId,
+  type StreetViewContext,
+} from "./streetview-context";
 
 type BridgeMap = {
   provider: "yandex" | "google";
@@ -836,9 +842,30 @@ export function runMapBridge(): void {
     }
   }
 
+  let lastBridgePanoId = "";
+
+  function postPanoId(panoId: string): void {
+    if (!panoId || panoId === lastBridgePanoId) {
+      return;
+    }
+    lastBridgePanoId = panoId;
+    window.postMessage({ type: PANO_CONTEXT_MSG, panoId }, "*");
+  }
+
+  function emitPanoContext(): void {
+    if (!isStreetViewPage()) {
+      return;
+    }
+    const panoId = parseStreetViewPanoId(location.href) ?? parsePanoIdFromHref(location.href);
+    if (panoId) {
+      postPanoId(panoId);
+    }
+  }
+
   function hookHistory(): void {
     const onUrl = (): void => {
       syncFromMapsOrUrl();
+      emitPanoContext();
     };
     window.addEventListener("popstate", onUrl);
     window.addEventListener("hashchange", onUrl);
@@ -1072,6 +1099,14 @@ export function runMapBridge(): void {
   if (anchor) {
     send(anchor);
   }
+  emitPanoContext();
+
+  // pano id берём из URL (единый формат с контент-скриптом), не из сети.
+  setInterval(() => {
+    if (isStreetViewPage()) {
+      emitPanoContext();
+    }
+  }, 200);
   setInterval(() => {
     patchYmaps2();
     patchYmaps3();

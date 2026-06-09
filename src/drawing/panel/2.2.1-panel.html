@@ -21,30 +21,14 @@
 </div>
 <div class="journey-active-title" id="vgf-journey-active-title" title=""></div>
 <div class="mode-row">
-  <button type="button" class="mode-btn" data-mode="nav" title="Навигация по карте (pan/zoom). Ctrl+M — переключить режим">Нав</button>
-  <button type="button" class="mode-btn" data-mode="draw" title="Рисование на overlay. Ctrl+M — переключить режим">Рис</button>
-</div>
-<div class="memory-section" id="vgf-memory-section">
-  <p class="memory-hint">Идёте дальше — новое место создаётся само. Вернётесь сюда — описание и холсты подгрузятся.</p>
-  <label class="walk-note-label" for="vgf-spot-note">Описание этого места</label>
-  <textarea id="vgf-spot-note" class="memory-draft-text" rows="3" placeholder="Что здесь интересного…" spellcheck="true"></textarea>
-  <div class="current-canvases" id="vgf-current-canvases" hidden></div>
-  <div class="walk-spot-actions">
-    <button type="button" class="envelope-wall-btn" id="vgf-envelope-wall">Холст на стене</button>
-    <button type="button" class="envelope-unfold-btn" id="vgf-envelope-unfold" hidden>Развернуть холст</button>
-    <button type="button" class="envelope-fold-btn" id="vgf-envelope-fold" hidden>Свернуть</button>
-  </div>
-  <div class="envelope-detail" id="vgf-envelope-detail" hidden>
-    <div class="envelope-wall-actions">
-      <button type="button" class="envelope-put-btn" id="vgf-envelope-put-in" hidden>Сохранить рисунок</button>
-    </div>
-  </div>
-  <div class="places-head" id="vgf-places-head" hidden>Места с рисунками</div>
-  <div class="memory-list places-list" id="vgf-memory-list" hidden role="list" aria-label="Места с рисунками"></div>
+  <button type="button" class="mode-btn" data-mode="nav" title="Навигация по панораме. Ctrl+M — переключить режим">Нав</button>
+  <button type="button" class="mode-btn" data-mode="draw" title="Рисование на панораме. Ctrl+M — переключить режим">Рис</button>
 </div>
 <div class="journey-row" id="vgf-journey-wrap">
   <label class="journey-label" for="vgf-journey-name">Название</label>
   <input type="text" id="vgf-journey-name" class="journey-name" autocomplete="off" spellcheck="false" />
+  <label class="journey-label journey-diary-label" for="vgf-journey-diary">Дневник прогулки</label>
+  <textarea id="vgf-journey-diary" class="journey-diary memory-draft-text" rows="3" placeholder="Заметки по ходу прогулки…" spellcheck="true"></textarea>
   <button type="button" class="journey-save-btn" id="vgf-journey-save" title="Сохранить прогулку в расширении">Сохранить</button>
   <details class="journey-saved-pick" id="vgf-journey-saved-pick">
     <summary class="journey-saved-summary" id="vgf-journey-saved-summary">Сохранённые на карте</summary>

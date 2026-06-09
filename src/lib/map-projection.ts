@@ -58,6 +58,27 @@ export function getProjectionViewportFrame(svFrame: ViewportFrame | null): Viewp
   return getMapViewportFrame();
 }
 
+/** Кадр оверлея рисования — координаты штрихов в client-space этой области. */
+export function getOverlayViewportFrame(canvas?: HTMLCanvasElement | null): ViewportFrame {
+  if (canvas) {
+    const r = canvas.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) {
+      return {
+        cx: r.left + r.width / 2,
+        cy: r.top + r.height / 2,
+        w: r.width,
+        h: r.height,
+      };
+    }
+  }
+  return {
+    cx: window.innerWidth / 2,
+    cy: window.innerHeight / 2,
+    w: window.innerWidth,
+    h: window.innerHeight,
+  };
+}
+
 /** Центр и размер области карты (крупнейший canvas на странице). */
 export function getMapViewportFrame(): ViewportFrame {
   let best: DOMRect | null = null;

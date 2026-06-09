@@ -5,8 +5,8 @@ import { formatBgError } from "../../lib/extension-api";
 import { isExtensionContextValid } from "../../lib/extension-context";
 import { bgSyncJourneys, type JourneySyncResponse } from "../../lib/journey-cloud-api";
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
-import { syncMemoryUi } from "./handle-memory";
-import { cloneMemories } from "./memory-types";
+import { onPanoChanged, syncDiaryPanel } from "./handle-pano";
+import { clonePanoDrawings } from "./pano-types";
 import {
   isJourneyDirty,
   setJourneyBaseline,
@@ -25,7 +25,6 @@ import {
   saveJourneySyncMeta,
   saveJourneys,
   saveVisibleJourneyIds,
-  type SavedJourney,
 } from "./journey-storage";
 
 export type CloudSyncUiState = "guest" | "no-api" | "idle" | "pending" | "syncing" | "error";
@@ -133,11 +132,17 @@ async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResp
     const remote = host.savedJourneys.find((j) => j.id === activeId);
     if (remote && host.activeJourney) {
       host.activeJourney.name = remote.name;
+      host.activeJourney.diary = remote.diary?.trim() ?? "";
       host.strokes.splice(0, host.strokes.length, ...cloneStrokes(remote.strokes));
-      host.memories = cloneMemories(remote.memories ?? []);
+      host.panoDrawings = clonePanoDrawings(remote.panoDrawings ?? []);
+      host.activeSpotKey = null;
       host.journeyNameEl.value = remote.name;
+      host.journeyDiaryEl.value = host.activeJourney.diary;
       setJourneyBaseline(host);
-      syncMemoryUi(host);
+      if (host.viewportMode === "streetview") {
+        onPanoChanged(host);
+      }
+      syncDiaryPanel(host);
     }
   }
 

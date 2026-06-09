@@ -19,10 +19,6 @@ canvas.layer.mode-nav {
   pointer-events: none;
   cursor: default;
 }
-.bar[data-viewport-mode="streetview"] canvas.layer.mode-nav {
-  pointer-events: auto;
-  cursor: pointer;
-}
 canvas.layer.vgf-hide-cursor {
   cursor: none;
 }
@@ -73,12 +69,6 @@ canvas.layer.vgf-hide-cursor {
 
 .bar[data-viewport-mode="streetview"] .journey-saved-pick.is-streetview .journey-saved-summary {
   font-weight: 600;
-}
-.bar[data-viewport-mode="streetview"] .mode-btn[data-mode="draw"] {
-  display: none;
-}
-.bar[data-viewport-mode="streetview"] .tools-section:not(.memory-sketch-tools) {
-  display: none;
 }
 .bar[data-viewport-mode="streetview"] .memory-section {
   display: flex;
@@ -974,6 +964,16 @@ canvas.layer.mode-wall-place {
 .journey-name:focus {
   outline: none;
   border-color: #8ab4f8;
+}
+.journey-diary-label {
+  margin-top: 8px;
+}
+.journey-diary {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  resize: vertical;
+  min-height: 52px;
 }
 .journey-save-btn {
   width: 100%;

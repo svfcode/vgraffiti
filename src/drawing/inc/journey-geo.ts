@@ -19,7 +19,7 @@ export function shiftStoredStrokes(
 ): void {
   const z = mapZoom(map);
   for (const s of strokes) {
-    if (s.coordSpace === "streetview" || s.coordSpace === "viewmemory") {
+    if (s.coordSpace === "streetview" || s.coordSpace === "screen" || s.coordSpace === "viewmemory") {
       continue;
     }
     if (s.kind === "brush" || s.kind === "eraser") {
@@ -58,7 +58,7 @@ export function getStrokesGeoCenter(strokes: StoredStroke[]): { lat: number; lng
   let sumLng = 0;
   let n = 0;
   for (const s of strokes) {
-    if (s.coordSpace === "streetview" || s.coordSpace === "viewmemory") {
+    if (s.coordSpace === "streetview" || s.coordSpace === "screen" || s.coordSpace === "viewmemory") {
       continue;
     }
     if (s.kind === "brush" || s.kind === "eraser") {

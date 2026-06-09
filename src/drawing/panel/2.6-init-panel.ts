@@ -23,7 +23,7 @@ import { applyBarPosition, applyPanelOpacity } from "../handlers/2.6.3-handle-pa
 import { initJourneyCloudSync } from "../inc/journey-cloud-sync";
 import { applyJourneyDeepLink, initJourneyDeepLink } from "../inc/journey-deep-link";
 import { initPanelViewportMode } from "../inc/panel-viewport-mode";
-import { bindMemoryPanelEvents, syncMemoryUi } from "../inc/handle-memory";
+import { bindDiaryPanelEvents, syncDiaryPanel } from "../inc/handle-pano";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
@@ -32,17 +32,9 @@ export function queryPanelElements(bar: HTMLDivElement): PanelElements {
     journeyNudgeWrap: bar.querySelector<HTMLDivElement>("#vgf-journey-nudge")!,
     journeyNewBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-new")!,
     journeyNameEl: bar.querySelector<HTMLInputElement>("#vgf-journey-name")!,
+    journeyDiaryEl: bar.querySelector<HTMLTextAreaElement>("#vgf-journey-diary")!,
     journeySaveBtn: bar.querySelector<HTMLButtonElement>("#vgf-journey-save")!,
     journeyListEl: bar.querySelector<HTMLDivElement>("#vgf-journey-list")!,
-    spotNoteEl: bar.querySelector<HTMLTextAreaElement>("#vgf-spot-note")!,
-    currentCanvasesEl: bar.querySelector<HTMLDivElement>("#vgf-current-canvases")!,
-    placesHeadEl: bar.querySelector<HTMLDivElement>("#vgf-places-head")!,
-    memoryListEl: bar.querySelector<HTMLDivElement>("#vgf-memory-list")!,
-    envelopeDetailWrap: bar.querySelector<HTMLDivElement>("#vgf-envelope-detail")!,
-    envelopeWallBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-wall")!,
-    envelopePutInBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-put-in")!,
-    envelopeUnfoldBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-unfold")!,
-    envelopeFoldBtn: bar.querySelector<HTMLButtonElement>("#vgf-envelope-fold")!,
     swatchHost: bar.querySelector<HTMLDivElement>("#vgf-swatches")!,
     swatchesWrap: bar.querySelector<HTMLDivElement>("#vgf-swatches-wrap")!,
     pickHintEl: bar.querySelector<HTMLParagraphElement>("#vgf-pick-hint")!,
@@ -84,7 +76,7 @@ export async function initPanel(host: DrawingOverlayHost): Promise<() => void> {
   bindCanvasEvents(host);
 
   bindJourneyPanelEvents(host);
-  bindMemoryPanelEvents(host);
+  bindDiaryPanelEvents(host);
   initActiveJourney(host);
   await initJourneyStorage(host);
   syncJourneyPanel(host);
@@ -105,7 +97,7 @@ export async function initPanel(host: DrawingOverlayHost): Promise<() => void> {
   const stopDeepLink = initJourneyDeepLink(host);
   const stopViewportMode = initPanelViewportMode(host);
 
-  syncMemoryUi(host);
+  syncDiaryPanel(host);
   await applyJourneyDeepLink(host);
 
   return () => {

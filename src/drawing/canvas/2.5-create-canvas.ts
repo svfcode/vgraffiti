@@ -1,15 +1,5 @@
 import { coalescedOrSelf, pointFromEvent } from "../inc/stroke";
 import { xyCanvas, type DrawingOverlayHost } from "../2.1-overlay-types";
-import {
-  confirmWallCanvasPlace,
-  onWallCanvasPlaceDown,
-  onWallCanvasPlaceMove,
-  onWallCanvasUnfoldDown,
-  onWallCanvasUnfoldMove,
-  onWallCanvasUnfoldUp,
-} from "../inc/handle-memory";
-import { isPointInWallRect } from "../inc/wall-canvas";
-import { getMemoryViewportFrame } from "../inc/view-memory";
 
 export type CanvasElements = {
   canvas: HTMLCanvasElement;
@@ -61,38 +51,10 @@ export function resizeCanvas(host: DrawingOverlayHost): void {
 }
 
 function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
-  if (ev.button !== 0) {
+  if (ev.button !== 0 || host.uiMode !== "draw") {
     return;
   }
   const { x, y } = xyCanvas(ev, host.canvas);
-
-  if (host.uiMode === "wallCanvasUnfold") {
-    if (onWallCanvasUnfoldDown(host, x, y, ev.pointerId)) {
-      ev.preventDefault();
-      host.canvas.setPointerCapture(ev.pointerId);
-    }
-    return;
-  }
-
-  if (host.uiMode === "wallCanvasPlace") {
-    ev.preventDefault();
-    host.isDrawing = true;
-    host.activePointerId = ev.pointerId;
-    host.canvas.setPointerCapture(ev.pointerId);
-    onWallCanvasPlaceDown(host, x, y);
-    return;
-  }
-
-  if (host.uiMode !== "draw" && host.uiMode !== "wallCanvas") {
-    return;
-  }
-
-  if (host.uiMode === "wallCanvas" && host.activeWallCanvas) {
-    const frame = getMemoryViewportFrame();
-    if (!isPointInWallRect(x, y, host.activeWallCanvas, host.canvas, frame)) {
-      return;
-    }
-  }
 
   ev.preventDefault();
   host.isDrawing = true;
@@ -104,12 +66,10 @@ function onCanvasPointerDown(host: DrawingOverlayHost, ev: PointerEvent): void {
     host.current = { tool: "brush", points: [pointFromEvent(ev, host.canvas)] };
   } else if (host.activeTool === "eraser") {
     host.current = { tool: "eraser", points: [pointFromEvent(ev, host.canvas)] };
+  } else if (host.activeTool === "arrow") {
+    host.current = { tool: "arrow", x0: x, y0: y, x1: x, y1: y };
   } else {
-    if (host.activeTool === "arrow") {
-      host.current = { tool: "arrow", x0: x, y0: y, x1: x, y1: y };
-    } else {
-      host.current = { tool: "square", x0: x, y0: y, x1: x, y1: y };
-    }
+    host.current = { tool: "square", x0: x, y0: y, x1: x, y1: y };
   }
   host.scheduleRedraw();
   host.lastHoverClient.x = ev.clientX;
@@ -129,18 +89,6 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
     host.hideSizeCursor();
   }
 
-  const { x, y } = xyCanvas(ev, host.canvas);
-
-  if (host.uiMode === "wallCanvasPlace" && host.wallCanvasDraftRect) {
-    onWallCanvasPlaceMove(host, x, y);
-    return;
-  }
-
-  if (host.wallCanvasDrag && host.uiMode === "wallCanvasUnfold") {
-    onWallCanvasUnfoldMove(host, x, y);
-    return;
-  }
-
   if (!host.isDrawing || !(ev.buttons & 1) || !host.current) {
     return;
   }
@@ -148,6 +96,7 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
     return;
   }
   ev.preventDefault();
+  const { x, y } = xyCanvas(ev, host.canvas);
   const cur = host.current;
   if (cur.tool === "brush" || cur.tool === "eraser") {
     for (const pe of coalescedOrSelf(ev)) {
@@ -161,28 +110,6 @@ function onCanvasPointerMove(host: DrawingOverlayHost, ev: PointerEvent): void {
 }
 
 function onCanvasPointerUp(host: DrawingOverlayHost, ev: PointerEvent): void {
-  if (host.uiMode === "wallCanvasPlace" && host.wallCanvasDraftRect && ev.pointerId === host.activePointerId) {
-    host.isDrawing = false;
-    host.activePointerId = null;
-    try {
-      host.canvas.releasePointerCapture(ev.pointerId);
-    } catch {
-      /* ignore */
-    }
-    confirmWallCanvasPlace(host);
-    return;
-  }
-
-  if (host.wallCanvasDrag && ev.pointerId === host.wallCanvasDrag.pointerId) {
-    try {
-      host.canvas.releasePointerCapture(ev.pointerId);
-    } catch {
-      /* ignore */
-    }
-    onWallCanvasUnfoldUp(host);
-    return;
-  }
-
   host.finishStroke(ev);
 }
 

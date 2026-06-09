@@ -3,7 +3,7 @@ import type { MapContext } from "../lib/map-context";
 import type { StreetViewContext } from "../lib/streetview-context";
 import type { ViewportMode } from "../lib/viewport-mode";
 import type { SavedJourney } from "./inc/journey-storage";
-import type { WalkLocation, WallCanvas } from "./inc/memory-types";
+import type { PanoDrawing } from "./inc/pano-types";
 
 export const Z_OVERLAY = 2147483000;
 
@@ -35,12 +35,7 @@ export const SWATCHES = [
 ];
 
 export type ToolId = "brush" | "eraser" | "arrow" | "square";
-export type UiMode =
-  | "nav"
-  | "draw"
-  | "wallCanvasPlace"
-  | "wallCanvas"
-  | "wallCanvasUnfold";
+export type UiMode = "nav" | "draw";
 
 export const TOOL_CYCLE_ORDER: readonly ToolId[] = ["brush", "eraser", "arrow", "square"];
 
@@ -125,6 +120,40 @@ type SvSquareStroke = {
   fov: number;
 };
 
+type ScreenBrushStroke = {
+  kind: "brush";
+  coordSpace: "screen";
+  points: StrokePoint[];
+  color: string;
+  size: number;
+};
+type ScreenEraserStroke = {
+  kind: "eraser";
+  coordSpace: "screen";
+  points: StrokePoint[];
+  size: number;
+};
+type ScreenArrowStroke = {
+  kind: "arrow";
+  coordSpace: "screen";
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  color: string;
+  lw: number;
+};
+type ScreenSquareStroke = {
+  kind: "square";
+  coordSpace: "screen";
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  color: string;
+  lw: number;
+};
+
 /** Точка эскиза памяти: [u, v, pressure] в anchor-пространстве панорамы. */
 export type MemoryUvPoint = [u: number, v: number, pressure: number];
 
@@ -165,12 +194,16 @@ type VmSquareStroke = {
 export type StoredStroke =
   | GeoBrushStroke
   | SvBrushStroke
+  | ScreenBrushStroke
   | GeoEraserStroke
   | SvEraserStroke
+  | ScreenEraserStroke
   | GeoArrowStroke
   | SvArrowStroke
+  | ScreenArrowStroke
   | GeoSquareStroke
   | SvSquareStroke
+  | ScreenSquareStroke
   | VmBrushStroke
   | VmEraserStroke
   | VmArrowStroke
@@ -207,8 +240,9 @@ export function isEditableKeyTarget(target: EventTarget | null): boolean {
 
 export type JourneyBaseline = {
   name: string;
+  diary: string;
   strokes: StoredStroke[];
-  memories: WalkLocation[];
+  panoDrawings: PanoDrawing[];
 };
 
 export type PanelElements = {
@@ -217,16 +251,8 @@ export type PanelElements = {
   journeyNudgeWrap: HTMLDivElement;
   journeyNewBtn: HTMLButtonElement;
   journeyNameEl: HTMLInputElement;
+  journeyDiaryEl: HTMLTextAreaElement;
   journeySaveBtn: HTMLButtonElement;
-  spotNoteEl: HTMLTextAreaElement;
-  currentCanvasesEl: HTMLDivElement;
-  placesHeadEl: HTMLDivElement;
-  memoryListEl: HTMLDivElement;
-  envelopeDetailWrap: HTMLDivElement;
-  envelopeWallBtn: HTMLButtonElement;
-  envelopeUnfoldBtn: HTMLButtonElement;
-  envelopeFoldBtn: HTMLButtonElement;
-  envelopePutInBtn: HTMLButtonElement;
   journeyListEl: HTMLDivElement;
   swatchHost: HTMLDivElement;
   swatchesWrap: HTMLDivElement;
@@ -259,6 +285,7 @@ export type ZoomVisual = {
 export type ActiveJourney = {
   id: string;
   name: string;
+  diary: string;
   createdAt: number;
 };
 
@@ -270,21 +297,8 @@ export interface DrawingOverlayHost extends PanelElements {
   savedJourneys: SavedJourney[];
   selectedJourneyIds: Set<string>;
   journeyNudgeOpen: boolean;
-  memories: WalkLocation[];
-  /** Текущее / выбранное место прогулки. */
-  openLocationId: string | null;
-  /** Черновик прямоугольника холста при размещении. */
-  wallCanvasDraftRect: { u0: number; v0: number; u1: number; v1: number } | null;
-  /** Активный холст на стене до сохранения в место. */
-  activeWallCanvas: WallCanvas | null;
-  /** id места, чей холст развёрнут на панораме. */
-  unfoldLocationId: string | null;
-  /** Индекс холста внутри unfoldLocationId. */
-  unfoldCanvasIndex: number;
-  /** Ключ панорамы (lat,lng) последнего авто-места. */
-  lastPanoramaKey: string | null;
-  /** Перетаскивание развёрнутого холста. */
-  wallCanvasDrag: { pointerId: number; startX: number; startY: number; baseOffsetU: number; baseOffsetV: number } | null;
+  panoDrawings: PanoDrawing[];
+  activeSpotKey: string | null;
   viewportMode: ViewportMode;
   streetViewContext: StreetViewContext | null;
   readonly canvas: HTMLCanvasElement;

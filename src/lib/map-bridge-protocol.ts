@@ -17,6 +17,8 @@ export const ZOOM_VISUAL_MSG = "vgf:mapZoomVisual";
 export const SET_CENTER_MSG = "vgf:mapSetCenter";
 /** Overlay → bridge: перейти к ракурсу Street View (Google Maps). */
 export const SET_STREET_VIEW_POV_MSG = "vgf:streetViewSetPov";
+/** Bridge → overlay: pano id из URL или сетевых ответов Google. */
+export const PANO_CONTEXT_MSG = "vgf:panoContext";
 
 /** Гео-штрих для нативного рендера (подмножество StoredStroke без pressure). */
 export type GeoStrokePayload =

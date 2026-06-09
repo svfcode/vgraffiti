@@ -4,8 +4,6 @@ import {
   type ToolId,
   type UiMode,
 } from "../2.1-overlay-types";
-import { cancelWallCanvas, foldWallCanvas } from "../inc/handle-memory";
-
 export function getBrushSize(host: DrawingOverlayHost): number {
   return Number(host.brushSizeEl.value) || 5;
 }
@@ -16,7 +14,7 @@ export function getEraserSize(host: DrawingOverlayHost): number {
 
 export function wantsSizeCursor(host: DrawingOverlayHost): boolean {
   return (
-    (host.uiMode === "draw" || host.uiMode === "wallCanvas") &&
+    host.uiMode === "draw" &&
     (host.activeTool === "brush" || host.activeTool === "eraser")
   );
 }
@@ -99,7 +97,6 @@ export function syncModeButtons(host: DrawingOverlayHost): void {
     btn.classList.toggle("on", mode === host.uiMode);
   });
   host.canvas.classList.toggle("mode-nav", host.uiMode === "nav");
-  host.canvas.classList.toggle("mode-wall-place", host.uiMode === "wallCanvasPlace");
   syncCanvasPointerCursor(host);
   if (host.uiMode === "nav") {
     hideSizeCursor(host);
@@ -187,18 +184,10 @@ function onModeClick(host: DrawingOverlayHost, e: MouseEvent): void {
 }
 
 export function toggleNavDrawMode(host: DrawingOverlayHost): void {
-  if (host.viewportMode === "streetview") {
-    return;
-  }
   applyNavDrawMode(host, host.uiMode === "draw" ? "nav" : "draw");
 }
 
 function applyNavDrawMode(host: DrawingOverlayHost, m: "nav" | "draw"): void {
-  if (host.uiMode === "wallCanvasUnfold") {
-    foldWallCanvas(host);
-  } else if (host.uiMode === "wallCanvas" || host.uiMode === "wallCanvasPlace") {
-    cancelWallCanvas(host);
-  }
   host.uiMode = m;
   syncModeButtons(host);
   host.syncMapFollow();

@@ -4,20 +4,12 @@ import { getStreetViewContext, getViewportMap } from "./inc/map-binding";
 import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
-import { projectStreetViewStroke } from "./inc/sv-stroke";
-import { filledCanvases } from "./inc/memory-types";
-import { getMemoryViewportFrame } from "./inc/view-memory";
-import {
-  renderWallCanvasFrame,
-  renderWallCanvasStrokes,
-  renderWallRectPreview,
-  wallCanvasOffsetPx,
-  wallCanvasScreenRect,
-} from "./inc/wall-canvas";
+import { spotSignatureFromHref } from "../lib/streetview-context";
+import { spotKeyFromSv } from "./inc/pano-types";
 import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
-import type { WallCanvas } from "./inc/memory-types";
-import type { StreetViewContext } from "../lib/streetview-context";
-import type { ViewportFrame } from "../lib/map-projection";
+
+/** Временный отладочный HUD для диагностики смены панорамы. */
+const VGF_DEBUG_SV = true;
 
 export function scheduleRedraw(host: DrawingOverlayHost): void {
   cancelAnimationFrame(host.raf);
@@ -26,75 +18,49 @@ export function scheduleRedraw(host: DrawingOverlayHost): void {
   });
 }
 
-function renderSvStrokesClipped(
-  ctx: CanvasRenderingContext2D,
-  strokes: StoredStroke[],
-  sv: StreetViewContext,
-  wc: Pick<WallCanvas, "u" | "v" | "w" | "h" | "offsetU" | "offsetV">,
-  canvas: HTMLCanvasElement,
-  mapFrame: ViewportFrame,
-  memFrame: ViewportFrame,
-): void {
-  const screen = wallCanvasScreenRect(wc, canvas, memFrame);
-  const { dx, dy } = wallCanvasOffsetPx(wc, canvas, memFrame);
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(screen.x, screen.y, screen.w, screen.h);
-  ctx.clip();
-  if (dx !== 0 || dy !== 0) {
-    ctx.translate(dx, dy);
-  }
-  for (const s of strokes) {
-    const projected = projectStreetViewStroke(s, sv, mapFrame);
-    if (!projected) {
-      continue;
-    }
-    if (projected.kind === "brush") {
-      renderStroke(ctx, projected.points, { color: projected.color, size: projected.size });
-    } else if (projected.kind === "eraser") {
-      renderEraserStroke(ctx, projected.points, projected.size);
-    } else if (projected.kind === "arrow") {
-      drawArrow(ctx, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
-    } else {
-      drawSquareStroke(ctx, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
-    }
-  }
-  ctx.restore();
+function drawDebugHud(host: DrawingOverlayHost): void {
+  const c = host.ctx;
+  const sv = getStreetViewContext(host);
+  const live = sv ? (spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv)) : "—";
+  const active = host.activeSpotKey ?? "—";
+  const match = active === live;
+  const lines = [
+    `mode=${host.viewportMode} ui=${host.uiMode}`,
+    `live   = ${live.slice(0, 40)}`,
+    `active = ${active.slice(0, 40)}`,
+    `match=${match} strokes=${host.strokes.length}`,
+  ];
+  c.save();
+  c.font = "12px monospace";
+  c.textBaseline = "top";
+  const pad = 6;
+  const lineH = 16;
+  const boxW = 360;
+  const boxH = pad * 2 + lineH * lines.length;
+  c.fillStyle = "rgba(0,0,0,0.7)";
+  c.fillRect(8, 8, boxW, boxH);
+  c.fillStyle = match ? "#7CFC00" : "#FF5555";
+  lines.forEach((t, i) => {
+    c.fillText(t, 8 + pad, 8 + pad + i * lineH);
+  });
+  c.restore();
 }
 
-function renderCurrentInWall(
-  host: DrawingOverlayHost,
-  ctx: CanvasRenderingContext2D,
-  wc: WallCanvas,
-  memFrame: ViewportFrame,
-): void {
-  if (!host.current) {
-    return;
+function renderScreenStrokeList(ctx: CanvasRenderingContext2D, strokes: StoredStroke[]): void {
+  for (const s of strokes) {
+    if (s.coordSpace !== "screen") {
+      continue;
+    }
+    if (s.kind === "brush") {
+      renderStroke(ctx, s.points, { color: s.color, size: s.size });
+    } else if (s.kind === "eraser") {
+      renderEraserStroke(ctx, s.points, s.size);
+    } else if (s.kind === "arrow") {
+      drawArrow(ctx, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
+    } else {
+      drawSquareStroke(ctx, s.x0, s.y0, s.x1, s.y1, s.color, s.lw);
+    }
   }
-  const screen = wallCanvasScreenRect(wc, host.canvas, memFrame);
-  const { dx, dy } = wallCanvasOffsetPx(wc, host.canvas, memFrame);
-  const cur = host.current;
-  ctx.save();
-  ctx.beginPath();
-  ctx.rect(screen.x, screen.y, screen.w, screen.h);
-  ctx.clip();
-  if (dx !== 0 || dy !== 0) {
-    ctx.translate(dx, dy);
-  }
-  if (cur.tool === "brush") {
-    renderStroke(ctx, cur.points, { color: host.fgColor, size: host.getBrushSize() });
-  } else if (cur.tool === "eraser") {
-    renderEraserStroke(ctx, cur.points, host.getEraserSize());
-  } else if (cur.tool === "arrow") {
-    ctx.globalAlpha = 0.45;
-    ctx.setLineDash([5, 5]);
-    drawArrow(ctx, cur.x0, cur.y0, cur.x1, cur.y1, host.fgColor, host.getBrushSize());
-  } else {
-    ctx.globalAlpha = 0.45;
-    ctx.setLineDash([5, 5]);
-    drawSquareStroke(ctx, cur.x0, cur.y0, cur.x1, cur.y1, host.fgColor, host.getBrushSize());
-  }
-  ctx.restore();
 }
 
 export function redraw(host: DrawingOverlayHost): void {
@@ -104,34 +70,20 @@ export function redraw(host: DrawingOverlayHost): void {
   c.clearRect(0, 0, w, h);
 
   const map = getViewportMap(host);
-  const sv = host.viewportMode === "streetview" ? getStreetViewContext(host) : null;
   const frame = getMapViewportFrame();
-  const memFrame = getMemoryViewportFrame();
 
-  if (host.viewportMode === "streetview" && sv) {
-    if (host.unfoldLocationId) {
-      const loc = host.memories.find((m) => m.id === host.unfoldLocationId);
-      const filled = loc ? filledCanvases(loc) : [];
-      const wc = filled[host.unfoldCanvasIndex] ?? filled[0];
-      if (wc) {
-        renderWallCanvasFrame(c, wc, host.canvas, memFrame, {
-          fill: "rgba(255, 250, 230, 0.88)",
-        });
-        renderWallCanvasStrokes(c, wc, sv, host.canvas, frame, memFrame);
-      }
+  if (host.viewportMode === "streetview") {
+    const sv = getStreetViewContext(host);
+    if (
+      sv &&
+      host.strokes.length > 0 &&
+      host.activeSpotKey &&
+      host.activeSpotKey === (spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv))
+    ) {
+      renderScreenStrokeList(c, host.strokes);
     }
-
-    if (host.activeWallCanvas) {
-      renderWallCanvasFrame(c, host.activeWallCanvas, host.canvas, memFrame, {
-        fill: "rgba(255, 250, 230, 0.75)",
-        label: "Холст на стене",
-      });
-      renderSvStrokesClipped(c, host.strokes, sv, host.activeWallCanvas, host.canvas, frame, memFrame);
-      renderCurrentInWall(host, c, host.activeWallCanvas, memFrame);
-    }
-
-    if (host.wallCanvasDraftRect) {
-      renderWallRectPreview(c, host.wallCanvasDraftRect, host.canvas, memFrame);
+    if (VGF_DEBUG_SV) {
+      drawDebugHud(host);
     }
   } else if (!host.mapNativeRender) {
     for (const s of getDisplayStrokes(host)) {
@@ -151,10 +103,13 @@ export function redraw(host: DrawingOverlayHost): void {
     }
   }
 
-  if (host.uiMode === "wallCanvas" || host.viewportMode === "streetview") {
+  if (!host.current) {
     return;
   }
-  if (!host.current) {
+  if (host.viewportMode === "streetview" && host.uiMode !== "draw") {
+    return;
+  }
+  if (host.viewportMode !== "streetview" && host.uiMode !== "draw") {
     return;
   }
   const cur = host.current;

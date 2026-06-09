@@ -1,15 +1,18 @@
 import type { StoredStroke } from "../2.1-overlay-types";
 import type { WalkLocation } from "./memory-types";
-import { isWalkLocation, normalizeWalkLocation } from "./memory-types";
+import { normalizePanoDrawings, type PanoDrawing } from "./pano-types";
 
-function normalizeJourneyMemories(j: SavedJourney): SavedJourney {
-  if (!j.memories?.length) {
-    return j;
+function normalizeJourney(j: SavedJourney): SavedJourney {
+  let out: SavedJourney = {
+    ...j,
+    panoDrawings: normalizePanoDrawings(j.panoDrawings),
+    memories: undefined,
+  };
+  const diary = (out as SavedJourney & { description?: string }).description?.trim();
+  if (diary && !out.diary) {
+    out = { ...out, diary };
   }
-  const memories = j.memories
-    .map((m) => normalizeWalkLocation(m) ?? (isWalkLocation(m) ? m : null))
-    .filter((m): m is WalkLocation => m != null);
-  return { ...j, memories: memories.length > 0 ? memories : undefined };
+  return out;
 }
 
 export type JourneySessionMode = "map" | "streetview";
@@ -17,7 +20,11 @@ export type JourneySessionMode = "map" | "streetview";
 export type SavedJourney = {
   id: string;
   name: string;
+  /** Дневник прогулки (Street View). */
+  diary?: string;
   strokes: StoredStroke[];
+  panoDrawings?: PanoDrawing[];
+  /** @deprecated мигрируется в panoDrawings */
   memories?: WalkLocation[];
   createdAt: number;
   updatedAt: number;
@@ -99,11 +106,13 @@ export function createDefaultSessionName(mode: "map" | "streetview" = "map"): st
   return mode === "streetview" ? `Прогулка ${dt}` : dt;
 }
 
-export function inferSessionMode(j: Pick<SavedJourney, "name" | "sessionMode" | "memories">): JourneySessionMode {
+export function inferSessionMode(
+  j: Pick<SavedJourney, "name" | "sessionMode" | "memories" | "panoDrawings" | "diary">,
+): JourneySessionMode {
   if (j.sessionMode === "streetview" || j.sessionMode === "map") {
     return j.sessionMode;
   }
-  if (j.memories && j.memories.length > 0) {
+  if ((j.panoDrawings && j.panoDrawings.length > 0) || (j.memories && j.memories.length > 0) || j.diary) {
     return "streetview";
   }
   if (j.name.trim().startsWith("Прогулка ")) {
@@ -136,7 +145,9 @@ function isSavedJourney(v: unknown): v is SavedJourney {
     typeof o.createdAt === "number" &&
     typeof o.updatedAt === "number" &&
     modeOk &&
-    (o.memories === undefined || Array.isArray(o.memories))
+    (o.memories === undefined || Array.isArray(o.memories)) &&
+    (o.panoDrawings === undefined || Array.isArray(o.panoDrawings)) &&
+    (o.diary === undefined || typeof o.diary === "string")
   );
 }
 
@@ -148,7 +159,7 @@ function parseJourneyList(raw: unknown): SavedJourney[] {
   if (!Array.isArray(raw)) {
     return [];
   }
-  return raw.filter(isSavedJourney).map((j) => withSessionMode(normalizeJourneyMemories(j)));
+  return raw.filter(isSavedJourney).map((j) => withSessionMode(normalizeJourney(j)));
 }
 
 function loadJourneysFromPage(): SavedJourney[] {
@@ -301,9 +312,9 @@ export function mergeJourneyLists(local: SavedJourney[], remote: SavedJourney[])
   for (const j of remote) {
     const prev = byId.get(j.id);
     if (!prev || j.updatedAt >= prev.updatedAt) {
-      const merged = normalizeJourneyMemories(j);
-      if (prev && (!merged.memories?.length) && prev.memories?.length) {
-        merged.memories = prev.memories;
+      const merged = normalizeJourney(j);
+      if (prev && (!merged.panoDrawings?.length) && prev.panoDrawings?.length) {
+        merged.panoDrawings = prev.panoDrawings;
       }
       byId.set(j.id, withSessionMode(merged));
     }

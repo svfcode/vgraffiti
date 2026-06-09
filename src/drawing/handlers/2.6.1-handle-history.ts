@@ -1,10 +1,9 @@
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyDirtyIndicator } from "./2.6.5-handle-journeys";
 import { screenPointsToGeo } from "../inc/geo-stroke";
-import { screenPointsToView } from "../inc/sv-stroke";
-import { captureFov, captureZoom, getStreetViewContext, getViewportMap } from "../inc/map-binding";
+import { flushPanoStrokes } from "../inc/handle-pano";
+import { captureZoom, getStreetViewContext, getViewportMap } from "../inc/map-binding";
 import { getMapViewportFrame, screenToMapGeo } from "../../lib/map-projection";
-import { screenToViewDirection } from "../../lib/streetview-projection";
 
 export function pushHistoryBeforeMutation(host: DrawingOverlayHost): void {
   host.past.push(cloneStrokes(host.strokes));
@@ -78,15 +77,14 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   host.activePointerId = null;
 
   const cur = host.current;
-  const frame = getMapViewportFrame();
   const isSv = host.viewportMode === "streetview";
-  const isWallCanvas = isSv && host.uiMode === "wallCanvas";
+  const frame = getMapViewportFrame();
+  const isSvDraw = isSv && host.uiMode === "draw";
   const sv = isSv ? getStreetViewContext(host) : null;
   const map = isSv ? null : getViewportMap(host);
   const zoom = captureZoom(host);
-  const fov = captureFov(host);
 
-  if (isSv && !sv) {
+  if (isSvDraw && !sv) {
     host.current = null;
     try {
       host.canvas.releasePointerCapture(ev.pointerId);
@@ -112,14 +110,13 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
 
   if (cur.tool === "brush" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
-    if (isWallCanvas && sv) {
+    if (isSvDraw && sv) {
       host.strokes.push({
         kind: "brush",
-        coordSpace: "streetview",
-        points: screenPointsToView(cur.points, sv, frame),
+        coordSpace: "screen",
+        points: structuredClone(cur.points),
         color: host.fgColor,
         size: host.getBrushSize(),
-        fov,
       });
     } else if (map) {
       host.strokes.push({
@@ -132,13 +129,12 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     }
   } else if (cur.tool === "eraser" && cur.points.length >= 2) {
     pushHistoryBeforeMutation(host);
-    if (isWallCanvas && sv) {
+    if (isSvDraw && sv) {
       host.strokes.push({
         kind: "eraser",
-        coordSpace: "streetview",
-        points: screenPointsToView(cur.points, sv, frame),
+        coordSpace: "screen",
+        points: structuredClone(cur.points),
         size: host.getEraserSize(),
-        fov,
       });
     } else if (map) {
       host.strokes.push({
@@ -152,19 +148,16 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.hypot(x1 - x0, y1 - y0) >= 4) {
       pushHistoryBeforeMutation(host);
-      if (isWallCanvas && sv) {
-        const a = screenToViewDirection(x0, y0, sv, frame);
-        const b = screenToViewDirection(x1, y1, sv, frame);
+      if (isSvDraw && sv) {
         host.strokes.push({
           kind: "arrow",
-          coordSpace: "streetview",
-          h0: a.heading,
-          p0: a.pitch,
-          h1: b.heading,
-          p1: b.pitch,
+          coordSpace: "screen",
+          x0,
+          y0,
+          x1,
+          y1,
           color: host.fgColor,
           lw: host.getBrushSize(),
-          fov,
         });
       } else if (map) {
         const p0 = screenToMapGeo(x0, y0, map, frame);
@@ -185,19 +178,16 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
     const { x0, y0, x1, y1 } = cur;
     if (Math.abs(x1 - x0) >= 3 || Math.abs(y1 - y0) >= 3) {
       pushHistoryBeforeMutation(host);
-      if (isWallCanvas && sv) {
-        const a = screenToViewDirection(x0, y0, sv, frame);
-        const b = screenToViewDirection(x1, y1, sv, frame);
+      if (isSvDraw && sv) {
         host.strokes.push({
           kind: "square",
-          coordSpace: "streetview",
-          h0: a.heading,
-          p0: a.pitch,
-          h1: b.heading,
-          p1: b.pitch,
+          coordSpace: "screen",
+          x0,
+          y0,
+          x1,
+          y1,
           color: host.fgColor,
           lw: host.getBrushSize(),
-          fov,
         });
       } else if (map) {
         const p0 = screenToMapGeo(x0, y0, map, frame);
@@ -222,6 +212,9 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   } catch {
     /* ignore */
   }
+  if (isSvDraw) {
+    flushPanoStrokes(host);
+  }
   host.syncStrokesToBridge();
   host.scheduleRedraw();
   syncUndoRedoButtons(host);
@@ -241,6 +234,9 @@ export function onClearClick(host: DrawingOverlayHost, e: MouseEvent): void {
   if (host.strokes.length > 0) {
     pushHistoryBeforeMutation(host);
     host.strokes.length = 0;
+    if (host.viewportMode === "streetview") {
+      flushPanoStrokes(host);
+    }
   }
   host.moreDetails.open = false;
   host.syncStrokesToBridge();

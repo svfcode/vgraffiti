@@ -2,8 +2,7 @@ import type { ViewportMode } from "../../lib/viewport-mode";
 import { installViewportModeWatcher } from "../../lib/viewport-mode";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyPanel, closeJourneyNudge } from "../handlers/2.6.5-handle-journeys";
-import { syncMemoryUi, onStreetViewPovChanged } from "./handle-memory";
-import { syncStreetViewContext } from "./map-binding";
+import { syncDiaryPanel, syncSpotFromPage } from "./handle-pano";
 
 export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportMode): void {
   host.viewportMode = mode;
@@ -16,12 +15,6 @@ export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportM
   if (nameLabel) {
     nameLabel.textContent = mode === "streetview" ? "Название прогулки" : "Название";
   }
-
-  host.journeySaveBtn.textContent = "Сохранить";
-  host.journeySaveBtn.title =
-    mode === "streetview"
-      ? "Сохранить прогулку в расширении"
-      : "Сохранить путешествие в расширении";
 
   const savedPick = host.journeyWrap.querySelector<HTMLDetailsElement>("#vgf-journey-saved-pick");
   if (savedPick) {
@@ -36,32 +29,19 @@ export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportM
     host.zoomVisual = null;
     host.panVisual = null;
     host.mapZooming = false;
-    syncStreetViewContext(host);
-    if (host.uiMode === "draw") {
-      host.uiMode = "nav";
-      host.syncModeButtons();
-    }
-    onStreetViewPovChanged(host);
+    syncSpotFromPage(host, { force: true });
+    host.scheduleRedraw();
   } else {
     host.streetViewContext = null;
-    host.openLocationId = null;
-    host.lastPanoramaKey = null;
-    host.wallCanvasDraftRect = null;
-    host.activeWallCanvas = null;
-    host.unfoldLocationId = null;
-    host.wallCanvasDrag = null;
-    if (
-      host.uiMode === "wallCanvas" ||
-      host.uiMode === "wallCanvasPlace" ||
-      host.uiMode === "wallCanvasUnfold"
-    ) {
+    host.activeSpotKey = null;
+    if (host.uiMode === "draw") {
       host.uiMode = "nav";
       host.syncModeButtons();
     }
   }
 
   syncJourneyPanel(host);
-  syncMemoryUi(host);
+  syncDiaryPanel(host);
 }
 
 export function initPanelViewportMode(host: DrawingOverlayHost): () => void {

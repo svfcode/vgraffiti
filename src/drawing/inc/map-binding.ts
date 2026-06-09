@@ -2,7 +2,6 @@ import { mapContextMoved, readMapContext, type MapContext } from "../../lib/map-
 import { mapCenterFromPanPixels, mapWithZoomVisual, mapZoom } from "../../lib/map-projection";
 import {
   readStreetViewContext,
-  streetViewContextMoved,
   type StreetViewContext,
 } from "../../lib/streetview-context";
 import {
@@ -12,9 +11,9 @@ import {
   installLiveMapProbe,
   pickViewportMapContext,
 } from "../../lib/map-live-probe";
-import type { GeoStrokePayload } from "../../lib/map-bridge-protocol";
+import { PANO_CONTEXT_MSG, type GeoStrokePayload } from "../../lib/map-bridge-protocol";
 import { getDisplayStrokes, syncJourneyPanel } from "../handlers/2.6.5-handle-journeys";
-import { onStreetViewPovChanged } from "./handle-memory";
+import { onBridgePanoId, syncSpotFromPage } from "./handle-pano";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 
 /** Время последнего live-обновления от page-bridge (ymaps). */
@@ -30,12 +29,7 @@ export function getStreetViewContext(host: DrawingOverlayHost): StreetViewContex
 }
 
 export function syncStreetViewContext(host: DrawingOverlayHost): boolean {
-  const next = readStreetViewContext();
-  if (!streetViewContextMoved(host.streetViewContext, next)) {
-    return false;
-  }
-  host.streetViewContext = next;
-  return true;
+  return syncSpotFromPage(host);
 }
 
 export function getViewportMap(host: DrawingOverlayHost): MapContext | null {
@@ -155,8 +149,7 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   // карта обновляет его после pan/zoom, и рисунок «прилипает» к месту.
   const urlPoll = window.setInterval(() => {
     if (host.viewportMode === "streetview") {
-      if (syncStreetViewContext(host)) {
-        onStreetViewPovChanged(host);
+      if (syncSpotFromPage(host)) {
         host.scheduleRedraw();
       }
       return;
@@ -181,14 +174,32 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
     if (host.viewportMode !== "streetview") {
       return;
     }
-    if (syncStreetViewContext(host)) {
-      onStreetViewPovChanged(host);
+    syncSpotFromPage(host);
+    host.scheduleRedraw();
+  }, 150);
+
+  const onPanoMessage = (event: MessageEvent): void => {
+    if (event.source !== window || !event.data || typeof event.data !== "object") {
+      return;
+    }
+    const data = event.data as Record<string, unknown>;
+    if (data.type !== PANO_CONTEXT_MSG) {
+      return;
+    }
+    const panoId = typeof data.panoId === "string" && data.panoId ? data.panoId : undefined;
+    if (panoId) {
+      onBridgePanoId(host, panoId);
+      return;
+    }
+    if (syncSpotFromPage(host)) {
       host.scheduleRedraw();
     }
-  }, 32);
+  };
+  window.addEventListener("message", onPanoMessage);
 
   return () => {
     unbind();
+    window.removeEventListener("message", onPanoMessage);
     window.clearInterval(urlPoll);
     window.clearInterval(svPoll);
   };
@@ -216,7 +227,7 @@ export function syncStrokesToBridge(host: DrawingOverlayHost): void {
   }
   const payload: GeoStrokePayload[] = [];
   for (const s of getDisplayStrokes(host)) {
-    if (s.coordSpace === "streetview" || s.coordSpace === "viewmemory") {
+    if (s.coordSpace === "streetview" || s.coordSpace === "screen" || s.coordSpace === "viewmemory") {
       continue;
     }
     if (s.kind === "brush") {

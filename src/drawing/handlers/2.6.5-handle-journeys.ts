@@ -1,9 +1,13 @@
 import { broadcastMapCenter } from "../../lib/map-live-probe";
-import { readStreetViewContext } from "../../lib/streetview-context";
 import { cloneStrokes, type DrawingOverlayHost, type StoredStroke } from "../2.1-overlay-types";
-import { cloneMemories } from "../inc/memory-types";
-import { syncMemoryUi, onStreetViewPovChanged } from "../inc/handle-memory";
-import { navigateToStreetViewPov } from "../inc/streetview-nav";
+import {
+  cloneHostPanoDrawings,
+  flushPanoStrokes,
+  onPanoChanged,
+  reloadCurrentPanoStrokes,
+  syncDiaryPanel,
+} from "../inc/handle-pano";
+import { clonePanoDrawings } from "../inc/pano-types";
 import {
   getStrokesGeoCenter,
   nudgeDirectionToPixels,
@@ -33,6 +37,7 @@ export function initActiveJourney(host: DrawingOverlayHost): void {
   host.activeJourney = {
     id: generateJourneyId(),
     name: createDefaultSessionName(host.viewportMode),
+    diary: "",
     createdAt: Date.now(),
   };
   setJourneyBaseline(host);
@@ -42,7 +47,7 @@ function strokesEqual(a: StoredStroke[], b: StoredStroke[]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function memoriesEqual(a: ReturnType<typeof cloneMemories>, b: ReturnType<typeof cloneMemories>): boolean {
+function panoDrawingsEqual(a: ReturnType<typeof clonePanoDrawings>, b: ReturnType<typeof clonePanoDrawings>): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
@@ -51,10 +56,12 @@ export function setJourneyBaseline(host: DrawingOverlayHost): void {
     host.journeyBaseline = null;
     return;
   }
+  flushPanoStrokes(host);
   host.journeyBaseline = {
     name: host.activeJourney.name.trim(),
+    diary: host.activeJourney.diary.trim(),
     strokes: cloneStrokes(host.strokes),
-    memories: cloneMemories(host.memories),
+    panoDrawings: cloneHostPanoDrawings(host),
   };
 }
 
@@ -66,22 +73,13 @@ export function isJourneyDirty(host: DrawingOverlayHost): boolean {
   if (name !== host.journeyBaseline.name) {
     return true;
   }
+  const diary = host.activeJourney.diary.trim();
+  if (diary !== host.journeyBaseline.diary) {
+    return true;
+  }
   if (host.viewportMode === "streetview") {
-    if (!memoriesEqual(host.memories, host.journeyBaseline.memories)) {
-      return true;
-    }
-    if (host.activeWallCanvas || host.wallCanvasDraftRect) {
-      const baselineLoc = host.openLocationId
-        ? host.journeyBaseline.memories.find((m) => m.id === host.openLocationId)
-        : null;
-      const baseStrokes =
-        baselineLoc?.canvases.flatMap((c) => c.strokes) ??
-        (baselineLoc?.wallCanvas?.strokes ?? []);
-      if (!strokesEqual(host.strokes, baseStrokes)) {
-        return true;
-      }
-    }
-    return false;
+    flushPanoStrokes(host);
+    return !panoDrawingsEqual(host.panoDrawings, host.journeyBaseline.panoDrawings);
   }
   return !strokesEqual(host.strokes, host.journeyBaseline.strokes);
 }
@@ -162,74 +160,42 @@ async function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney
   host.activeJourney = {
     id: journey.id,
     name: journey.name,
+    diary: journey.diary?.trim() ?? "",
     createdAt: journey.createdAt,
   };
   host.strokes.splice(0, host.strokes.length, ...cloneStrokes(journey.strokes));
-  host.memories = cloneMemories(journey.memories ?? []);
-  host.openLocationId = null;
-  host.lastPanoramaKey = null;
-  host.unfoldCanvasIndex = 0;
-  host.wallCanvasDraftRect = null;
-  host.activeWallCanvas = null;
-  host.unfoldLocationId = null;
-  host.wallCanvasDrag = null;
-  host.spotNoteEl.value = "";
+  host.panoDrawings = clonePanoDrawings(journey.panoDrawings ?? []);
+  host.activeSpotKey = null;
   resetJourneyHistory(host);
   setJourneyBaseline(host);
   host.journeyNameEl.value = journey.name;
+  host.journeyDiaryEl.value = host.activeJourney.diary;
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
+  syncDiaryPanel(host);
   host.syncStrokesToBridge();
-  host.scheduleRedraw();
 
   if (host.viewportMode === "streetview") {
-    onStreetViewPovChanged(host);
+    reloadCurrentPanoStrokes(host);
   } else {
-    syncMemoryUi(host);
-  }
-
-  const firstArt = host.memories.find((m) => m.canvases.some((c) => c.strokes.length > 0));
-  if (host.viewportMode === "streetview" && firstArt && !host.openLocationId) {
-    const ok = await navigateToStreetViewPov(firstArt.anchor);
-    if (ok) {
-      const next = readStreetViewContext();
-      if (next) {
-        host.streetViewContext = next;
-      }
-      onStreetViewPovChanged(host);
-      host.scheduleRedraw();
-    }
+    host.scheduleRedraw();
   }
 }
 
 export function startNewActiveJourney(host: DrawingOverlayHost): void {
   initActiveJourney(host);
   host.strokes.length = 0;
-  host.memories = [];
-  host.openLocationId = null;
-  host.lastPanoramaKey = null;
-  host.unfoldCanvasIndex = 0;
-  host.wallCanvasDraftRect = null;
-  host.activeWallCanvas = null;
-  host.unfoldLocationId = null;
-  host.wallCanvasDrag = null;
-  host.spotNoteEl.value = "";
-  if (
-    host.uiMode === "wallCanvas" ||
-    host.uiMode === "wallCanvasPlace" ||
-    host.uiMode === "wallCanvasUnfold"
-  ) {
-    host.uiMode = "nav";
-    host.syncModeButtons();
-  }
+  host.panoDrawings = [];
+  host.activeSpotKey = null;
   resetJourneyHistory(host);
   host.journeyNameEl.value = host.activeJourney!.name;
+  host.journeyDiaryEl.value = "";
   closeJourneyNudge(host);
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
-  syncMemoryUi(host);
+  syncDiaryPanel(host);
   if (host.viewportMode === "streetview") {
-    onStreetViewPovChanged(host);
+    onPanoChanged(host);
   }
   host.syncStrokesToBridge();
   host.scheduleRedraw();
@@ -368,7 +334,9 @@ export function syncJourneyPanel(host: DrawingOverlayHost): void {
   host.journeyWrap.hidden = false;
   if (host.activeJourney) {
     host.journeyNameEl.value = host.activeJourney.name;
+    host.journeyDiaryEl.value = host.activeJourney.diary;
   }
+  syncDiaryPanel(host);
   refreshJourneyList(host);
   syncJourneyDirtyIndicator(host);
 }
@@ -553,17 +521,22 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
     host.viewportMode === "streetview"
       ? "streetview"
       : (prior?.sessionMode ?? "map");
+  flushPanoStrokes(host);
+  const diary = host.activeJourney.diary.trim();
   const journey: SavedJourney = {
     id: host.activeJourney.id,
     name: host.activeJourney.name.trim() || createDefaultSessionName(host.viewportMode),
-    strokes: cloneStrokes(host.strokes),
-    memories: cloneMemories(host.memories),
+    diary: diary || undefined,
+    strokes: host.viewportMode === "streetview" ? [] : cloneStrokes(host.strokes),
+    panoDrawings: cloneHostPanoDrawings(host),
     createdAt: host.activeJourney.createdAt,
     updatedAt: now,
     sessionMode,
   };
   host.activeJourney.name = journey.name;
+  host.activeJourney.diary = diary;
   host.journeyNameEl.value = journey.name;
+  host.journeyDiaryEl.value = diary;
 
   const idx = host.savedJourneys.findIndex((j) => j.id === journey.id);
   if (idx >= 0) {
