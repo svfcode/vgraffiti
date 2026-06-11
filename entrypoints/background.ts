@@ -1,10 +1,10 @@
-import { getApiBaseUrl, setApiBaseUrl } from "../src/lib/storage";
+import { getApiBaseUrl } from "../src/lib/storage";
 import { apiRequest } from "../src/lib/api-request";
 import {
   handleAuthBackgroundMessage,
   isAuthBgMessage,
 } from "../src/auth/background-handlers";
-import { normalizeApiBaseUrl, originFromApiBase } from "../src/lib/url";
+import { originFromApiBase } from "../src/lib/url";
 import type { MapContext } from "../src/lib/map-context";
 
 type Ok<T> = { ok: true; data: T };
@@ -12,24 +12,21 @@ type Err = { ok: false; error: string; status?: number; body?: string };
 type Result<T> = Ok<T> | Err;
 
 type BgMessage =
-  | { type: "config.setApiBase"; url: string }
-  | { type: "api.meta" }
-  | { type: "api.authEmail"; email: string }
-  | { type: "api.authVerify"; email: string; code: string }
   | { type: "api.logout" }
+  | { type: "auth.requestSiteSync" }
   | { type: "api.uploadDrawing"; imageBase64: string; mimeType: string; meta: Record<string, unknown>; map?: MapContext | null }
   | { type: "api.listDrawingsNearMap"; lat: number; lng: number; mapProvider: string; radius: number; zoom: number | null }
   | { type: "api.syncJourneys"; journeys: unknown[]; visibleClientIds: string[]; deletedClientIds: string[] }
   | { type: "api.fetchImageDataUrl"; url: string };
 
 const NEED_API_HOST_HINT =
-  "Нет доступа к домену API в браузере. Откройте окно расширения (иконка пазла → vgraffiti) и нажмите «Проверить адрес», разрешите доступ, затем повторите действие на карте.";
+  "Нет доступа к drawonit.loc. Переустановите расширение или проверьте разрешения в настройках браузера.";
 
 /** В SW нельзя вызывать chrome.permissions.request (нет user gesture) — только проверка. */
 async function hasApiOriginPermission(): Promise<Result<boolean>> {
   const base = await getApiBaseUrl();
   if (!base) {
-    return { ok: false, error: "Сначала сохраните URL API в окне расширения" };
+    return { ok: false, error: "API не настроен" };
   }
   const originPattern = `${originFromApiBase(base)}/*`;
   try {
@@ -48,41 +45,8 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
   }
 
   switch (msg.type) {
-    case "config.setApiBase": {
-      try {
-        const normalized = normalizeApiBaseUrl(msg.url);
-        await setApiBaseUrl(normalized);
-        return { ok: true, data: { apiBaseUrl: normalized } };
-      } catch (e) {
-        return { ok: false, error: e instanceof Error ? e.message : String(e) };
-      }
-    }
-    case "api.meta": {
-      const perm = await hasApiOriginPermission();
-      if (!perm.ok) {
-        return perm;
-      }
-      if (!perm.data) {
-        return { ok: false, error: NEED_API_HOST_HINT };
-      }
-      const r = await apiRequest({
-        path: "/meta",
-        method: "GET",
-        auth: "none",
-      });
-      if (!r.ok) {
-        return r;
-      }
-      const { status, json, text } = r.data;
-      if (status >= 400) {
-        return {
-          ok: false,
-          status,
-          body: text,
-          error: `HTTP ${status}`,
-        };
-      }
-      return { ok: true, data: json };
+    case "auth.requestSiteSync": {
+      return requestSiteSync();
     }
     case "api.uploadDrawing": {
       const perm = await hasApiOriginPermission();
@@ -228,6 +192,33 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
     default:
       return { ok: false, error: "Неизвестный тип сообщения" };
   }
+}
+
+async function requestSiteSync(): Promise<Result<unknown>> {
+  const tabs = await chrome.tabs.query({ url: ["*://drawonit.loc/*"] });
+  if (tabs.length === 0) {
+    return {
+      ok: false,
+      error: "Откройте drawonit.loc в браузере, войдите в аккаунт и повторите.",
+    };
+  }
+  for (const tab of tabs) {
+    if (tab.id == null) {
+      continue;
+    }
+    try {
+      const r = await chrome.tabs.sendMessage(tab.id, { type: "auth.syncNow" });
+      if (r && typeof r === "object" && ("ok" in r || "guest" in r)) {
+        return { ok: true, data: r };
+      }
+    } catch {
+      /* вкладка без content script */
+    }
+  }
+  return {
+    ok: false,
+    error: "Откройте любую страницу drawonit.loc (не карту), затем повторите.",
+  };
 }
 
 export default defineBackground(() => {

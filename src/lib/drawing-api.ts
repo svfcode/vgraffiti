@@ -21,12 +21,12 @@ export type DrawingUploadPayload = {
 export async function uploadDrawing(payload: DrawingUploadPayload): Promise<BgResult> {
   const base = await getApiBaseUrl();
   if (!base) {
-    return { ok: false, error: "Сервер не настроен: укажите URL API в окне расширения" };
+    return { ok: false, error: "API не настроен" };
   }
 
   const { accessToken } = await getSession();
   if (!accessToken) {
-    return { ok: false, error: "Нет сессии: войдите по почте в окне расширения" };
+    return { ok: false, error: "Нет сессии: войдите на drawonit.loc" };
   }
 
   if (!payload.imageBase64) {
@@ -126,7 +126,7 @@ async function uploadDrawingDirect(
     const msg = e instanceof Error ? e.message : String(e);
     return {
       ok: false,
-      error: `Сеть: ${msg}. Проверьте URL API (${origin}) и «Проверить адрес» в popup расширения.`,
+      error: `Сеть: ${msg}. Проверьте доступность ${origin}.`,
     };
   }
 

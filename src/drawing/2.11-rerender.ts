@@ -7,6 +7,7 @@ import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
 import { spotSignatureFromHref, type StreetViewContext } from "../lib/streetview-context";
 import { spotKeyFromSv } from "./inc/pano-types";
 import { getStreetViewDrawFrame, projectStreetViewStroke } from "./inc/sv-stroke";
+import { renderMapDirectionArrow, renderSvDirectionArrow } from "./inc/pano-direction";
 import { getSvCalibration } from "../lib/streetview-projection";
 import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
 
@@ -93,24 +94,32 @@ export function redraw(host: DrawingOverlayHost): void {
     ) {
       renderSvStrokeList(c, host.strokes, sv, host);
     }
+    if (sv) {
+      renderSvDirectionArrow(host, c, sv);
+    }
     if (VGF_DEBUG_SV) {
       drawDebugHud(host);
     }
-  } else if (!host.mapNativeRender) {
-    for (const s of getDisplayStrokes(host)) {
-      const projected = map ? projectStoredStroke(s, map, frame) : null;
-      if (!projected) {
-        continue;
+  } else {
+    if (!host.mapNativeRender) {
+      for (const s of getDisplayStrokes(host)) {
+        const projected = map ? projectStoredStroke(s, map, frame) : null;
+        if (!projected) {
+          continue;
+        }
+        if (projected.kind === "brush") {
+          renderStroke(c, projected.points, { color: projected.color, size: projected.size });
+        } else if (projected.kind === "eraser") {
+          renderEraserStroke(c, projected.points, projected.size);
+        } else if (projected.kind === "arrow") {
+          drawArrow(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
+        } else {
+          drawSquareStroke(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
+        }
       }
-      if (projected.kind === "brush") {
-        renderStroke(c, projected.points, { color: projected.color, size: projected.size });
-      } else if (projected.kind === "eraser") {
-        renderEraserStroke(c, projected.points, projected.size);
-      } else if (projected.kind === "arrow") {
-        drawArrow(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
-      } else {
-        drawSquareStroke(c, projected.x0, projected.y0, projected.x1, projected.y1, projected.color, projected.lw);
-      }
+    }
+    if (map) {
+      renderMapDirectionArrow(host, c, map, frame);
     }
   }
 

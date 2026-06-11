@@ -22,7 +22,7 @@ export async function apiRequest(opts: {
 }): Promise<ApiResult<{ status: number; json: unknown | null; text: string }>> {
   const base = await getApiBaseUrl();
   if (!base) {
-    return { ok: false, error: "Сервер не настроен: укажите API root в popup" };
+    return { ok: false, error: "API не настроен" };
   }
   const path = opts.path.startsWith("/") ? opts.path : `/${opts.path}`;
   const url = `${base}${path}`;
@@ -38,7 +38,7 @@ export async function apiRequest(opts: {
   if (opts.auth === "bearer") {
     const { accessToken } = await getSession();
     if (!accessToken) {
-      return { ok: false, error: "Нет сессии: войдите по почте" };
+      return { ok: false, error: "Нет сессии: войдите на drawonit.loc" };
     }
     headers.Authorization = `Bearer ${accessToken}`;
   }

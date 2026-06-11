@@ -34,6 +34,25 @@ body {
   text-decoration: underline;
 }
 
+.guest-login-row {
+  margin: 10px 0 12px;
+}
+
+.login-site-link {
+  color: #8ab4f8;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.login-site-link:hover {
+  text-decoration: underline;
+}
+
+.guest-hint {
+  margin-top: 10px;
+}
+
 details.sync {
   margin-top: 0;
   border: 1px solid #5f6368;

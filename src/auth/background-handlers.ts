@@ -7,7 +7,7 @@ import { apiRequest } from "../lib/api-request";
 type Result<T> = ApiResult<T>;
 
 const NEED_API_HOST_HINT =
-  "Нет доступа к домену API в браузере. Откройте окно расширения (иконка пазла → vgraffiti) и нажмите «Проверить адрес», разрешите доступ, затем повторите действие на карте.";
+  "Нет доступа к drawonit.loc. Проверьте разрешения расширения в браузере.";
 
 type PermissionCheck = () => Promise<Result<boolean>>;
 
@@ -74,7 +74,7 @@ async function handleAuthVerify(email: string, code: string): Promise<Result<unk
   await setSession({
     accessToken: parsed.accessToken,
     expiresAt: parsed.expiresAt,
-    email,
+    email: parsed.email ?? email,
     profileDrawingsUrl: parsed.profileDrawingsUrl,
   });
   return { ok: true, data: { ok: true } };

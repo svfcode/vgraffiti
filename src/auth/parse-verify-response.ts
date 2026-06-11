@@ -1,6 +1,7 @@
 export type VerifySessionPayload = {
   accessToken: string;
   expiresAt: string | null;
+  email: string | null;
   profileDrawingsUrl: string | null;
 };
 
@@ -15,11 +16,15 @@ export function parseVerifyResponse(json: unknown): VerifySessionPayload | null 
     return null;
   }
   let profileDrawingsUrl: string | null = null;
+  let email: string | null = null;
   const userObj = o.user;
   if (userObj && typeof userObj === "object") {
     const u = userObj as Record<string, unknown>;
     if (typeof u.profile_drawings_url === "string" && u.profile_drawings_url.length > 0) {
       profileDrawingsUrl = u.profile_drawings_url;
+    }
+    if (typeof u.email === "string" && u.email.length > 0) {
+      email = u.email;
     }
   }
   return {
@@ -28,6 +33,7 @@ export function parseVerifyResponse(json: unknown): VerifySessionPayload | null 
       typeof expires_at === "string" || expires_at === null
         ? (expires_at as string | null)
         : null,
+    email,
     profileDrawingsUrl,
   };
 }

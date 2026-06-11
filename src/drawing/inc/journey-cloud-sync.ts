@@ -1,6 +1,6 @@
 import { STORAGE_ACCESS_TOKEN } from "../../auth/constants";
 import { getSession } from "../../auth/session";
-import { STORAGE_API_BASE } from "../../lib/constants";
+import { getApiBaseUrl } from "../../lib/storage";
 import { formatBgError } from "../../lib/extension-api";
 import { isExtensionContextValid } from "../../lib/extension-context";
 import { bgSyncJourneys, type JourneySyncResponse } from "../../lib/journey-cloud-api";
@@ -41,9 +41,9 @@ let boundHost: DrawingOverlayHost | null = null;
 function cloudTitle(state: CloudSyncUiState, error: string | null, email: string | null): string {
   switch (state) {
     case "guest":
-      return "Облако: войдите в расширении vgraffiti";
+      return "Облако: войдите на drawonit.loc";
     case "no-api":
-      return "Облако: укажите URL API в окне расширения";
+      return "Облако: сервер недоступен";
     case "syncing":
       return "Синхронизация с облаком…";
     case "pending":
@@ -76,13 +76,11 @@ async function resolveCloudUiState(): Promise<{
   if (!isExtensionContextValid()) {
     return { state: "guest", email: null, meta: { pending: false, lastSyncAt: null, lastError: null } };
   }
-  const [session, apiData, meta] = await Promise.all([
+  const [session, apiBase, meta] = await Promise.all([
     getSession(),
-    chrome.storage.local.get(STORAGE_API_BASE),
+    getApiBaseUrl(),
     loadJourneySyncMeta(),
   ]);
-  const apiBase =
-    typeof apiData[STORAGE_API_BASE] === "string" ? apiData[STORAGE_API_BASE] : null;
   if (!apiBase) {
     return { state: "no-api", email: session.email, meta };
   }
@@ -161,10 +159,8 @@ export async function runJourneyCloudSync(host: DrawingOverlayHost, force = fals
   }
 
   const session = await getSession();
-  const apiBase = await chrome.storage.local.get(STORAGE_API_BASE);
-  const hasApi =
-    typeof apiBase[STORAGE_API_BASE] === "string" && apiBase[STORAGE_API_BASE].length > 0;
-  if (!hasApi || !session.accessToken) {
+  const apiBase = await getApiBaseUrl();
+  if (!apiBase || !session.accessToken) {
     await refreshCloudSyncUi(host);
     return;
   }
@@ -278,7 +274,7 @@ export function initJourneyCloudSync(host: DrawingOverlayHost): () => void {
     if (!isExtensionContextValid() || area !== "local" || !boundHost) {
       return;
     }
-    if (changes[STORAGE_ACCESS_TOKEN] || changes[STORAGE_API_BASE]) {
+    if (changes[STORAGE_ACCESS_TOKEN]) {
       void refreshCloudSyncUi(boundHost);
       scheduleJourneyCloudSync(boundHost);
       return;

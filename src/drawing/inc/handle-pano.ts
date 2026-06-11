@@ -47,7 +47,6 @@ export function flushPanoStrokes(host: DrawingOverlayHost): void {
     host.strokes,
     getStreetViewContext(host),
   );
-  syncJourneyDirtyIndicator(host);
 }
 
 function loadStrokesForSpot(host: DrawingOverlayHost, spotKey: string, sv: StreetViewContext): void {

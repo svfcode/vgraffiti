@@ -25,48 +25,17 @@
       </section>
 
       <section id="panelGuest" class="panel">
-        <details class="sync">
-          <summary>Вход</summary>
-
-          <p id="guestHint" class="muted small"></p>
-          <p class="muted small">
-            Контракт путей: <code>docs/api.md</code>. Для запросов к API браузер запросит доступ к домену
-            сервера.
-          </p>
-
-          <section class="inner">
-            <h2>Сервер</h2>
-            <label class="block">
-              <span>Базовый URL API</span>
-              <input id="apiUrl" type="url" placeholder="http://drawonit.loc/wp-json/vgraffiti/v1" autocomplete="off" />
-            </label>
-            <div class="row">
-              <button id="btnSaveServer" type="button">Сохранить</button>
-              <button id="btnCheckMeta" type="button" title="Проверка доступности сервера по указанному адресу API">Проверить адрес</button>
-            </div>
-            <div id="metaOut" class="out meta-out" hidden></div>
-          </section>
-
-          <section class="inner">
-            <h2>Почта</h2>
-            <label class="block">
-              <span>Email</span>
-              <input id="email" type="email" autocomplete="email" />
-            </label>
-            <button id="btnSendCode" type="button">Отправить код</button>
-            <p class="muted small send-code-hint">
-              Повторная отправка кода — не чаще одного раза в 2 минуты.
-            </p>
-            <p id="sendCodeCooldownLive" class="muted small send-code-cooldown-live" hidden></p>
-            <div id="codeStep" class="code-step" hidden>
-              <label class="block mt">
-                <span>Код из письма</span>
-                <input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" />
-              </label>
-              <button id="btnVerify" type="button">Подтвердить</button>
-            </div>
-          </section>
-        </details>
+        <p class="muted small">
+          Войдите в аккаунт на сайте — расширение подхватит сессию автоматически.
+        </p>
+        <p class="guest-login-row">
+          <a id="loginLink" class="login-site-link" href="#" target="_blank" rel="noopener noreferrer"
+            >Войти на drawonit.loc</a>
+        </p>
+        <button id="btnSyncLogin" type="button">Проверить вход</button>
+        <p class="muted small guest-hint">
+          Откройте сайт в этой же вкладке браузера, войдите, затем нажмите «Проверить вход».
+        </p>
       </section>
 
       <p id="err" class="err" hidden></p>

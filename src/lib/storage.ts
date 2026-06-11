@@ -1,11 +1,11 @@
-import { STORAGE_API_BASE } from "./constants";
+import { DEFAULT_API_BASE_URL } from "./constants";
 
-export async function getApiBaseUrl(): Promise<string | null> {
-  const r = await chrome.storage.local.get(STORAGE_API_BASE);
-  const v = r[STORAGE_API_BASE];
-  return typeof v === "string" && v.length > 0 ? v : null;
+/** API root захардкожен; позже вынесем в конфиг прод-сборки. */
+export async function getApiBaseUrl(): Promise<string> {
+  return DEFAULT_API_BASE_URL;
 }
 
-export async function setApiBaseUrl(url: string): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_API_BASE]: url });
+/** @deprecated Сервер больше не настраивается вручную. */
+export async function setApiBaseUrl(_url: string): Promise<void> {
+  /* no-op */
 }
