@@ -581,7 +581,32 @@ canvas.layer.mode-wall-place {
   width: 100%;
   cursor: pointer;
 }
-.more-sv-walk {
+.more-sv-range {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  color: #bdc1c6;
+}
+.more-range-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.more-sv-range input[type="range"] {
+  flex: 1;
+  cursor: pointer;
+}
+.more-range-val {
+  min-width: 2.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #e8eaed;
+}
+.more-sv-minimap {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -593,7 +618,7 @@ canvas.layer.mode-wall-place {
   cursor: pointer;
   user-select: none;
 }
-.more-sv-walk input {
+.more-sv-minimap input {
   cursor: pointer;
   accent-color: #8ab4f8;
 }
@@ -1228,4 +1253,21 @@ canvas.layer.mode-wall-place {
 }
 .swatch[data-c="#ffffff"] {
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.sv-minimap-wrap {
+  position: absolute;
+  left: 14px;
+  bottom: 168px;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+.sv-minimap-wrap[hidden] {
+  display: none !important;
+}
+.sv-minimap {
+  display: block;
+  border-radius: 10px;
 }

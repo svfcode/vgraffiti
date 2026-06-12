@@ -8,6 +8,8 @@ import {
   syncDiaryPanel,
 } from "../inc/handle-pano";
 import { clonePanoDrawings } from "../inc/pano-types";
+import { markSvMinimapDirty } from "../inc/sv-minimap";
+import { clearPanoWalkLinks } from "../inc/sv-walk-graph";
 import {
   getStrokesGeoCenter,
   nudgeDirectionToPixels,
@@ -165,6 +167,8 @@ async function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney
   };
   host.strokes.splice(0, host.strokes.length, ...cloneStrokes(journey.strokes));
   host.panoDrawings = clonePanoDrawings(journey.panoDrawings ?? []);
+  clearPanoWalkLinks();
+  markSvMinimapDirty();
   host.activeSpotKey = null;
   resetJourneyHistory(host);
   setJourneyBaseline(host);
@@ -186,6 +190,8 @@ export function startNewActiveJourney(host: DrawingOverlayHost): void {
   initActiveJourney(host);
   host.strokes.length = 0;
   host.panoDrawings = [];
+  clearPanoWalkLinks();
+  markSvMinimapDirty();
   host.activeSpotKey = null;
   resetJourneyHistory(host);
   host.journeyNameEl.value = host.activeJourney!.name;

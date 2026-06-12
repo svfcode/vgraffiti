@@ -3,8 +3,8 @@ import { installViewportModeWatcher } from "../../lib/viewport-mode";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyPanel, closeJourneyNudge } from "../handlers/2.6.5-handle-journeys";
 import { syncDiaryPanel, syncSpotFromPage } from "./handle-pano";
-import { broadcastSvWalkLinks, syncSvWalkLinksSetting } from "./sv-walk-links";
-import { readSvWalkLinksAlways } from "../../lib/sv-prefs";
+import { syncSvMinimapVisibility, tickSvMinimap } from "./sv-minimap";
+import { syncSvPanelSettings } from "./sv-panel-settings";
 
 export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportMode): void {
   host.viewportMode = mode;
@@ -27,21 +27,17 @@ export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportM
     closeJourneyNudge(host);
   }
 
-  const walkWrap = host.bar.querySelector<HTMLLabelElement>("#vgf-sv-walk-wrap");
-  if (walkWrap) {
-    walkWrap.hidden = mode !== "streetview";
-  }
+  syncSvPanelSettings(host);
 
   if (mode === "streetview") {
     host.zoomVisual = null;
     host.panVisual = null;
     host.mapZooming = false;
     syncSpotFromPage(host, { force: true });
-    syncSvWalkLinksSetting(host);
-    broadcastSvWalkLinks(readSvWalkLinksAlways());
+    tickSvMinimap(host, true);
     host.scheduleRedraw();
   } else {
-    broadcastSvWalkLinks(false);
+    syncSvMinimapVisibility(host);
     host.streetViewContext = null;
     host.activeSpotKey = null;
     if (host.uiMode === "draw") {
@@ -52,6 +48,7 @@ export function applyPanelViewportMode(host: DrawingOverlayHost, mode: ViewportM
 
   syncJourneyPanel(host);
   syncDiaryPanel(host);
+  syncSvMinimapVisibility(host);
 }
 
 export function initPanelViewportMode(host: DrawingOverlayHost): () => void {

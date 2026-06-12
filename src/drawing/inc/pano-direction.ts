@@ -6,11 +6,10 @@ import { mapGeoToScreen, type ViewportFrame } from "../../lib/map-projection";
 import { getStreetViewDrawFrame } from "./sv-stroke";
 import { flushPanoStrokes } from "./handle-pano";
 import { isSameSpot } from "./pano-types";
+import { distanceToPanoDrawing, getSvDrawingRangeM } from "./sv-drawing-range";
 
-/** Ближе этого точку считаем «текущей» — стрелку не показываем. */
-const SAME_SPOT_M = 3;
-/** До какой дистанции показывать стрелку-указатель в Street View, м. */
-const SV_MAX_M = 5000;
+/** Ближе этого не показывать указатель (текущая точка). */
+const MIN_ARROW_M = 3;
 /** Прозрачность стрелок к рисункам. */
 const ARROW_ALPHA = 0.72;
 /** Цвет стрелок. */
@@ -91,8 +90,9 @@ function remoteDrawingTargets(host: DrawingOverlayHost, cam: StreetViewContext):
     if (!d.strokes.length || isSameSpot(d, cam)) {
       continue;
     }
-    const dist = metersBetween(cam, d);
-    if (dist <= SAME_SPOT_M || dist > SV_MAX_M) {
+    const dist = distanceToPanoDrawing(host, cam, d);
+    const maxM = getSvDrawingRangeM(host);
+    if (dist <= MIN_ARROW_M || dist > maxM) {
       continue;
     }
     const key = d.panoId ?? `${d.lat.toFixed(5)},${d.lng.toFixed(5)}`;

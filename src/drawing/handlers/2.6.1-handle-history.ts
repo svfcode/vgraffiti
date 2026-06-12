@@ -2,6 +2,7 @@ import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 import { syncJourneyDirtyIndicator } from "./2.6.5-handle-journeys";
 import { screenPointsToGeo } from "../inc/geo-stroke";
 import { flushPanoStrokes } from "../inc/handle-pano";
+import { markSvMinimapDirty, tickSvMinimap } from "../inc/sv-minimap";
 import { captureZoom, getStreetViewContext, getViewportMap } from "../inc/map-binding";
 import { getMapViewportFrame, screenToMapGeo } from "../../lib/map-projection";
 
@@ -226,6 +227,8 @@ export function finishStroke(host: DrawingOverlayHost, ev: PointerEvent): void {
   }
   if (isSvDraw) {
     flushPanoStrokes(host);
+    markSvMinimapDirty();
+    tickSvMinimap(host, true);
   }
   host.syncStrokesToBridge();
   host.scheduleRedraw();

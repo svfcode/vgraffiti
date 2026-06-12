@@ -5,12 +5,23 @@ import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
 import { spotSignatureFromHref, type StreetViewContext } from "../lib/streetview-context";
-import { filterAnchoredStrokes, findPanoDrawing, isSameSpot, spotKeyFromSv } from "./inc/pano-types";
+import { spotKeyFromSv } from "./inc/pano-types";
 import { flushPanoStrokes } from "./inc/handle-pano";
-import { getStreetViewDrawFrame, projectStreetViewStroke } from "./inc/sv-stroke";
+import {
+  collectPanoDrawingsInRange,
+  isCurrentPanoDrawing,
+  panoParallaxHeading,
+} from "./inc/sv-drawing-range";
+import {
+  getStreetViewDrawFrame,
+  projectStreetViewStroke,
+  projectStreetViewStrokeFromPano,
+} from "./inc/sv-stroke";
+import type { PanoDrawing } from "./inc/pano-types";
 import { renderMapDirectionArrow, renderSvDirectionArrow } from "./inc/pano-direction";
+import { syncSvMinimapVisibility } from "./inc/sv-minimap";
 import { getSvCalibration } from "../lib/streetview-projection";
-import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
+import type { DrawingOverlayHost } from "./2.1-overlay-types";
 
 /** Временный отладочный HUD для диагностики смены панорамы. */
 const VGF_DEBUG_SV = false;
@@ -52,43 +63,49 @@ function drawDebugHud(host: DrawingOverlayHost): void {
   c.restore();
 }
 
-function strokesForCurrentView(host: DrawingOverlayHost, sv: StreetViewContext): StoredStroke[] {
-  flushPanoStrokes(host);
-  const liveKey = spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv);
-  if (host.strokes.length > 0 && host.activeSpotKey === liveKey) {
-    return host.strokes;
+function renderProjectedSvStroke(
+  ctx: CanvasRenderingContext2D,
+  p: NonNullable<ReturnType<typeof projectStreetViewStroke>>,
+): void {
+  if (p.kind === "brush") {
+    renderStroke(ctx, p.points, { color: p.color, size: p.size });
+  } else if (p.kind === "eraser") {
+    renderEraserStroke(ctx, p.points, p.size);
+  } else if (p.kind === "arrow") {
+    drawArrow(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
+  } else {
+    drawSquareStroke(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
   }
-  const entry = findPanoDrawing(host.panoDrawings, sv);
-  if (entry && isSameSpot(entry, sv) && entry.strokes.length > 0) {
-    return filterAnchoredStrokes(entry.strokes);
-  }
-  if (host.strokes.length > 0 && entry && isSameSpot(entry, sv)) {
-    return host.strokes;
-  }
-  return host.strokes;
 }
 
-function renderSvStrokeList(
+function renderSvDrawing(
   ctx: CanvasRenderingContext2D,
-  strokes: StoredStroke[],
+  drawing: PanoDrawing,
   cam: StreetViewContext,
   host: DrawingOverlayHost,
 ): void {
   const frame = getStreetViewDrawFrame(host.canvas);
-  for (const s of strokes) {
-    const p = projectStreetViewStroke(s, cam, frame);
+  const parallax = panoParallaxHeading(host, drawing, cam);
+  const sameSpot = isCurrentPanoDrawing(host, cam, drawing);
+  for (const s of drawing.strokes) {
+    const p = sameSpot
+      ? projectStreetViewStroke(s, cam, frame)
+      : projectStreetViewStrokeFromPano(s, cam, frame, parallax);
     if (!p) {
       continue;
     }
-    if (p.kind === "brush") {
-      renderStroke(ctx, p.points, { color: p.color, size: p.size });
-    } else if (p.kind === "eraser") {
-      renderEraserStroke(ctx, p.points, p.size);
-    } else if (p.kind === "arrow") {
-      drawArrow(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
-    } else {
-      drawSquareStroke(ctx, p.x0, p.y0, p.x1, p.y1, p.color, p.lw);
-    }
+    renderProjectedSvStroke(ctx, p);
+  }
+}
+
+function renderStreetViewDrawings(
+  ctx: CanvasRenderingContext2D,
+  host: DrawingOverlayHost,
+  cam: StreetViewContext,
+): void {
+  flushPanoStrokes(host);
+  for (const drawing of collectPanoDrawingsInRange(host, cam)) {
+    renderSvDrawing(ctx, drawing, cam, host);
   }
 }
 
@@ -104,10 +121,7 @@ export function redraw(host: DrawingOverlayHost): void {
   if (host.viewportMode === "streetview") {
     const sv = getStreetViewContext(host);
     if (sv) {
-      const strokes = strokesForCurrentView(host, sv);
-      if (strokes.length > 0) {
-        renderSvStrokeList(c, strokes, sv, host);
-      }
+      renderStreetViewDrawings(c, host, sv);
     }
     if (sv) {
       renderSvDirectionArrow(host, c, sv);
@@ -116,6 +130,7 @@ export function redraw(host: DrawingOverlayHost): void {
       drawDebugHud(host);
     }
   } else {
+    syncSvMinimapVisibility(host);
     if (!host.mapNativeRender) {
       for (const s of getDisplayStrokes(host)) {
         const projected = map ? projectStoredStroke(s, map, frame) : null;

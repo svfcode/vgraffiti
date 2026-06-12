@@ -1,5 +1,11 @@
 import type { StreetViewContext } from "../../lib/streetview-context";
-import { povTranslation, strokeSizeAtFov } from "../../lib/streetview-projection";
+import { normalizeHeading } from "../../lib/streetview-context";
+import {
+  povTranslation,
+  screenToViewDirection,
+  strokeSizeAtFov,
+  viewDirectionToScreen,
+} from "../../lib/streetview-projection";
 import {
   getOverlayViewportFrame,
   getStreetViewViewportFrame,
@@ -67,6 +73,111 @@ export function projectStreetViewStroke(
     y0: stroke.y0 + dy,
     x1: stroke.x1 + dx,
     y1: stroke.y1 + dy,
+    color: stroke.color,
+    lw: size,
+  };
+}
+
+type ProjectedSvStroke = NonNullable<ReturnType<typeof projectStreetViewStroke>>;
+
+function anchorCamFromStroke(
+  stroke: StoredStroke & { aHeading: number; aPitch: number; fov: number },
+  cam: StreetViewContext,
+): StreetViewContext {
+  return {
+    ...cam,
+    heading: stroke.aHeading,
+    pitch: stroke.aPitch,
+    fov: stroke.fov,
+  };
+}
+
+function projectSvPoint(
+  x: number,
+  y: number,
+  anchorCam: StreetViewContext,
+  cam: StreetViewContext,
+  frame: ViewportFrame,
+  parallaxHeading: number,
+): { x: number; y: number } | null {
+  const dir = screenToViewDirection(x, y, anchorCam, frame);
+  const heading = normalizeHeading(dir.heading + parallaxHeading);
+  return viewDirectionToScreen(heading, dir.pitch, cam, frame);
+}
+
+/** Проекция штриха с другой панорамы (поправка parallaxHeading, °). */
+export function projectStreetViewStrokeFromPano(
+  stroke: StoredStroke,
+  cam: StreetViewContext,
+  frame: ViewportFrame,
+  parallaxHeading = 0,
+): ProjectedSvStroke | null {
+  if (stroke.coordSpace !== "streetview") {
+    return null;
+  }
+  if (Math.abs(parallaxHeading) < 1e-6) {
+    return projectStreetViewStroke(stroke, cam, frame);
+  }
+
+  const anchorCam = anchorCamFromStroke(
+    stroke as StoredStroke & { aHeading: number; aPitch: number; fov: number },
+    cam,
+  );
+  const size = scaledSvSize(stroke, cam);
+
+  if (stroke.kind === "brush") {
+    const points: StrokePoint[] = [];
+    for (const [x, y, p] of stroke.points) {
+      const pt = projectSvPoint(x, y, anchorCam, cam, frame, parallaxHeading);
+      if (pt) {
+        points.push([pt.x, pt.y, p]);
+      }
+    }
+    if (points.length < 2) {
+      return null;
+    }
+    return { kind: "brush", points, color: stroke.color, size };
+  }
+  if (stroke.kind === "eraser") {
+    const points: StrokePoint[] = [];
+    for (const [x, y, p] of stroke.points) {
+      const pt = projectSvPoint(x, y, anchorCam, cam, frame, parallaxHeading);
+      if (pt) {
+        points.push([pt.x, pt.y, p]);
+      }
+    }
+    if (points.length < 2) {
+      return null;
+    }
+    return { kind: "eraser", points, size };
+  }
+  if (stroke.kind === "arrow") {
+    const p0 = projectSvPoint(stroke.x0, stroke.y0, anchorCam, cam, frame, parallaxHeading);
+    const p1 = projectSvPoint(stroke.x1, stroke.y1, anchorCam, cam, frame, parallaxHeading);
+    if (!p0 || !p1) {
+      return null;
+    }
+    return {
+      kind: "arrow",
+      x0: p0.x,
+      y0: p0.y,
+      x1: p1.x,
+      y1: p1.y,
+      color: stroke.color,
+      lw: size,
+    };
+  }
+  const p0 = projectSvPoint(stroke.x0, stroke.y0, anchorCam, cam, frame, parallaxHeading);
+  const p1 = projectSvPoint(stroke.x1, stroke.y1, anchorCam, cam, frame, parallaxHeading);
+  if (!p0 || !p1) {
+    return null;
+  }
+  return {
+    kind: "square",
+    x0: p0.x,
+    y0: p0.y,
+    x1: p1.x,
+    y1: p1.y,
     color: stroke.color,
     lw: size,
   };

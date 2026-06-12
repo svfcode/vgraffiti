@@ -279,7 +279,11 @@ export type PanelElements = {
   cloudSyncBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   redoBtn: HTMLButtonElement;
-  svWalkLinksEl: HTMLInputElement;
+  svRangeWrap: HTMLLabelElement;
+  svDrawingRangeEl: HTMLInputElement;
+  svDrawingRangeValEl: HTMLSpanElement;
+  svMinimapSettingWrap: HTMLLabelElement;
+  svMinimapEl: HTMLInputElement;
 };
 
 export type PanVisual = { dx: number; dy: number; dragging: boolean };
@@ -300,6 +304,9 @@ export type ActiveJourney = {
 
 export interface DrawingOverlayHost extends PanelElements {
   readonly root: HTMLDivElement;
+  readonly svMinimapWrap: HTMLDivElement;
+  readonly svMinimapCanvas: HTMLCanvasElement;
+  readonly svMinimapCtx: CanvasRenderingContext2D;
 
   activeJourney: ActiveJourney | null;
   journeyBaseline: JourneyBaseline | null;
@@ -308,6 +315,8 @@ export interface DrawingOverlayHost extends PanelElements {
   journeyNudgeOpen: boolean;
   panoDrawings: PanoDrawing[];
   activeSpotKey: string | null;
+  /** Дальность показа рисунков в Street View, м (живое значение с ползунка). */
+  svDrawingRangeM: number;
   viewportMode: ViewportMode;
   streetViewContext: StreetViewContext | null;
   readonly canvas: HTMLCanvasElement;

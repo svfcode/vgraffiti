@@ -4,7 +4,10 @@ import { xyCanvas, type DrawingOverlayHost } from "../2.1-overlay-types";
 export type CanvasElements = {
   canvas: HTMLCanvasElement;
   sizeCursorEl: HTMLDivElement;
+  svMinimapWrap: HTMLDivElement;
+  svMinimapCanvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
+  svMinimapCtx: CanvasRenderingContext2D;
 };
 
 export function createCanvas(root: HTMLDivElement, bar: HTMLDivElement): CanvasElements {
@@ -15,16 +18,30 @@ export function createCanvas(root: HTMLDivElement, bar: HTMLDivElement): CanvasE
   sizeCursorEl.className = "size-cursor";
   sizeCursorEl.hidden = true;
 
+  const svMinimapWrap = document.createElement("div");
+  svMinimapWrap.className = "sv-minimap-wrap";
+  svMinimapWrap.hidden = true;
+  svMinimapWrap.title = "Рисунки прогулки — направление от вас";
+
+  const svMinimapCanvas = document.createElement("canvas");
+  svMinimapCanvas.className = "sv-minimap";
+  svMinimapWrap.appendChild(svMinimapCanvas);
+
   root.appendChild(canvas);
   root.appendChild(bar);
+  root.appendChild(svMinimapWrap);
   root.appendChild(sizeCursorEl);
 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     throw new Error("DrawingOverlay: 2d context unavailable");
   }
+  const svMinimapCtx = svMinimapCanvas.getContext("2d");
+  if (!svMinimapCtx) {
+    throw new Error("DrawingOverlay: minimap 2d context unavailable");
+  }
 
-  return { canvas, sizeCursorEl, ctx };
+  return { canvas, sizeCursorEl, svMinimapWrap, svMinimapCanvas, ctx, svMinimapCtx };
 }
 
 export function bindCanvasEvents(host: DrawingOverlayHost): void {
@@ -34,7 +51,10 @@ export function bindCanvasEvents(host: DrawingOverlayHost): void {
   host.canvas.addEventListener("pointerleave", () => onCanvasPointerLeave(host));
   host.canvas.addEventListener("pointerup", (ev) => onCanvasPointerUp(host, ev));
   host.canvas.addEventListener("pointercancel", (ev) => onCanvasPointerUp(host, ev));
-  window.addEventListener("resize", () => resizeCanvas(host));
+  window.addEventListener("resize", () => {
+    resizeCanvas(host);
+    host.scheduleRedraw();
+  });
 }
 
 export function resizeCanvas(host: DrawingOverlayHost): void {

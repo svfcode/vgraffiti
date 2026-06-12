@@ -2,6 +2,7 @@ import { mapContextMoved, readMapContext, type MapContext } from "../../lib/map-
 import { mapCenterFromPanPixels, mapWithZoomVisual, mapZoom } from "../../lib/map-projection";
 import {
   readStreetViewContext,
+  streetViewContextMoved,
   type StreetViewContext,
 } from "../../lib/streetview-context";
 import {
@@ -14,7 +15,33 @@ import {
 import { PANO_CONTEXT_MSG, type GeoStrokePayload } from "../../lib/map-bridge-protocol";
 import { getDisplayStrokes, syncJourneyPanel } from "../handlers/2.6.5-handle-journeys";
 import { onBridgePanoId, syncSpotFromPage } from "./handle-pano";
+import { markSvMinimapDirty, tickSvMinimap } from "./sv-minimap";
 import type { DrawingOverlayHost } from "../2.1-overlay-types";
+
+const SV_POLL_MS = 220;
+const SV_POV_EPS_DEG = 0.2;
+
+function svViewChanged(prev: StreetViewContext | null, next: StreetViewContext | null): boolean {
+  if (!prev || !next) {
+    return prev !== next;
+  }
+  if (streetViewContextMoved(prev, next)) {
+    return true;
+  }
+  if (prev.panoId !== next.panoId) {
+    return true;
+  }
+  if (Math.abs(prev.heading - next.heading) > SV_POV_EPS_DEG) {
+    return true;
+  }
+  if (Math.abs(prev.pitch - next.pitch) > SV_POV_EPS_DEG) {
+    return true;
+  }
+  if (Math.abs(prev.fov - next.fov) > SV_POV_EPS_DEG) {
+    return true;
+  }
+  return false;
+}
 
 /** Время последнего live-обновления от page-bridge (ymaps). */
 let lastLiveAt = 0;
@@ -149,9 +176,6 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
   // карта обновляет его после pan/zoom, и рисунок «прилипает» к месту.
   const urlPoll = window.setInterval(() => {
     if (host.viewportMode === "streetview") {
-      if (syncSpotFromPage(host)) {
-        host.scheduleRedraw();
-      }
       return;
     }
     if (host.mapZooming) {
@@ -170,14 +194,20 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
     }
   }, URL_POLL_MS);
 
-  // POV-привязка к сцене: часто перечитываем ракурс из URL и репроецируем штрихи.
+  // POV-привязка: перечитываем URL; оверлей — только при смене ракурса/точки.
   const svPoll = window.setInterval(() => {
     if (host.viewportMode !== "streetview") {
       return;
     }
-    syncSpotFromPage(host);
-    host.scheduleRedraw();
-  }, 60);
+    const prev = host.streetViewContext;
+    const spotChanged = syncSpotFromPage(host);
+    const cur = getStreetViewContext(host);
+    const viewChanged = spotChanged || svViewChanged(prev, cur);
+    if (viewChanged) {
+      host.scheduleRedraw();
+    }
+    tickSvMinimap(host, spotChanged);
+  }, SV_POLL_MS);
 
   const onPanoMessage = (event: MessageEvent): void => {
     if (event.source !== window || !event.data || typeof event.data !== "object") {
@@ -190,10 +220,15 @@ export function installMapBinding(host: DrawingOverlayHost): () => void {
     const panoId = typeof data.panoId === "string" && data.panoId ? data.panoId : undefined;
     if (panoId) {
       onBridgePanoId(host, panoId);
+      markSvMinimapDirty();
+      tickSvMinimap(host, true);
+      host.scheduleRedraw();
       return;
     }
     if (syncSpotFromPage(host)) {
       host.scheduleRedraw();
+      markSvMinimapDirty();
+      tickSvMinimap(host, true);
     }
   };
   window.addEventListener("message", onPanoMessage);

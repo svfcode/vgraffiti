@@ -13,9 +13,16 @@
         Прозрачность панели
         <input type="range" id="vgf-panel-opacity" min="25" max="100" value="100" step="5" />
       </label>
-      <label class="more-sv-walk" id="vgf-sv-walk-wrap" title="Держать на полу Street View видимыми стрелки хода Google (как при наведении)">
-        <input type="checkbox" id="vgf-sv-walk-links" />
-        Стрелки хода Street View
+      <label class="more-sv-range" id="vgf-sv-range-wrap" hidden title="На каком расстоянии показывать рисунки прогулки в Street View, на мини-карте и стрелках">
+        Дальность рисунков, м
+        <span class="more-range-row">
+          <input type="range" id="vgf-sv-drawing-range" min="5" max="500" value="100" step="5" />
+          <span class="more-range-val" id="vgf-sv-drawing-range-val">100</span>
+        </span>
+      </label>
+      <label class="more-sv-minimap" id="vgf-sv-minimap-wrap" hidden title="Мини-карта с направлением к рисункам прогулки">
+        <input type="checkbox" id="vgf-sv-minimap" />
+        Мини-карта прогулки
       </label>
       <button type="button" id="vgf-journey-new" class="more-journey-new">Новое путешествие</button>
       <button type="button" id="vgf-shortcuts-show" class="more-action-btn">Горячие клавиши</button>

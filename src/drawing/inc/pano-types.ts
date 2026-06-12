@@ -6,6 +6,8 @@ export type PanoDrawing = {
   lat: number;
   lng: number;
   panoId?: string;
+  /** Азимут камеры при последнем сохранении (для направления на мини-карте). */
+  visitHeading?: number;
   strokes: StoredStroke[];
 };
 
@@ -125,6 +127,7 @@ export function upsertPanoDrawingForSpotKey(
   if (sv) {
     entry.lat = sv.lat;
     entry.lng = sv.lng;
+    entry.visitHeading = sv.heading;
     if (sv.panoId) {
       entry.panoId = sv.panoId;
     }
@@ -153,8 +156,11 @@ export function normalizePanoDrawing(raw: unknown): PanoDrawing | null {
     return null;
   }
   const panoId = typeof o.panoId === "string" && o.panoId ? o.panoId : undefined;
+  const visitHeading = typeof o.visitHeading === "number" && Number.isFinite(o.visitHeading)
+    ? o.visitHeading
+    : undefined;
   const strokes = Array.isArray(o.strokes) ? filterAnchoredStrokes(o.strokes as StoredStroke[]) : [];
-  return { lat, lng, panoId, strokes };
+  return { lat, lng, panoId, visitHeading, strokes };
 }
 
 export function normalizePanoDrawings(raw: unknown): PanoDrawing[] {

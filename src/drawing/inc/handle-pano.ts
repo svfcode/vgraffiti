@@ -15,6 +15,8 @@ import {
   upsertPanoDrawingForSpotKey,
   type PanoDrawing,
 } from "./pano-types";
+import { markSvMinimapDirty, tickSvMinimap } from "./sv-minimap";
+import { recordPanoWalkLink } from "./sv-walk-graph";
 
 function currentSpotKey(sv: StreetViewContext): string {
   return spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv);
@@ -49,6 +51,29 @@ export function flushPanoStrokes(host: DrawingOverlayHost): void {
   );
 }
 
+/** Перед показом мини-карты: сохранить текущие штрихи и подтянуть panoId из URL. */
+export function syncPanoDrawingsForMinimap(host: DrawingOverlayHost): void {
+  if (host.viewportMode !== "streetview") {
+    return;
+  }
+  flushPanoStrokes(host);
+  const sv = getStreetViewContext(host);
+  if (!sv) {
+    return;
+  }
+  const key = host.activeSpotKey ?? currentSpotKey(sv);
+  const entry = host.panoDrawings.find(
+    (d) => d.panoId && sv.panoId && d.panoId === sv.panoId,
+  );
+  if (entry) {
+    entry.lat = sv.lat;
+    entry.lng = sv.lng;
+  }
+  if (host.strokes.length > 0) {
+    upsertPanoDrawingForSpotKey(host.panoDrawings, key, host.strokes, sv);
+  }
+}
+
 function loadStrokesForSpot(host: DrawingOverlayHost, spotKey: string, sv: StreetViewContext): void {
   host.activeSpotKey = spotKey;
   const entry = findPanoDrawing(host.panoDrawings, sv);
@@ -72,9 +97,15 @@ function applySpotChange(host: DrawingOverlayHost, newKey: string, sv: StreetVie
   if (prevKey && prevKey !== newKey && host.strokes.length > 0) {
     upsertPanoDrawingForSpotKey(host.panoDrawings, prevKey, host.strokes, host.streetViewContext);
   }
+  if (prevKey && prevKey !== newKey) {
+    const walkHeading = host.streetViewContext?.heading ?? sv.heading;
+    recordPanoWalkLink(prevKey, newKey, walkHeading);
+  }
   host.streetViewContext = sv;
   loadStrokesForSpot(host, newKey, sv);
   syncJourneyDirtyIndicator(host);
+  markSvMinimapDirty();
+  tickSvMinimap(host, true);
 }
 
 /** Опрос страницы: вернуть true, если точка сменилась и штрихи обновлены. */
@@ -87,6 +118,15 @@ export function syncSpotFromPage(host: DrawingOverlayHost, options?: { force?: b
     return false;
   }
   const newKey = currentSpotKey(sv);
+  const panoIdChanged =
+    !!sv.panoId &&
+    !!host.streetViewContext?.panoId &&
+    sv.panoId !== host.streetViewContext.panoId;
+  if (panoIdChanged) {
+    const key = sv.panoId ? `id:${sv.panoId}` : newKey;
+    applySpotChange(host, key, sv);
+    return true;
+  }
   if (!options?.force && newKey === host.activeSpotKey) {
     host.streetViewContext = sv;
     if (host.strokes.length === 0) {
@@ -145,7 +185,6 @@ export function onBridgePanoId(host: DrawingOverlayHost, panoId: string): void {
     return;
   }
   applySpotChange(host, newKey, sv);
-  host.scheduleRedraw();
 }
 
 export function bindDiaryPanelEvents(host: DrawingOverlayHost): void {

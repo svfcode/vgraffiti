@@ -24,6 +24,7 @@ import {
   applyPanelOpacity,
 } from "./handlers/2.6.3-handle-panel-move";
 import { scheduleRedraw } from "./2.11-rerender";
+import { readSvDrawingRangeM } from "../lib/sv-prefs";
 import {
   cycleToolForward,
   getBrushSize,
@@ -109,7 +110,14 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly journeyDiaryEl: HTMLTextAreaElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
-  readonly svWalkLinksEl: HTMLInputElement;
+  readonly svRangeWrap: HTMLLabelElement;
+  readonly svDrawingRangeEl: HTMLInputElement;
+  readonly svDrawingRangeValEl: HTMLSpanElement;
+  readonly svMinimapSettingWrap: HTMLLabelElement;
+  readonly svMinimapEl: HTMLInputElement;
+  readonly svMinimapWrap: HTMLDivElement;
+  readonly svMinimapCanvas: HTMLCanvasElement;
+  readonly svMinimapCtx: CanvasRenderingContext2D;
 
   activeJourney: ActiveJourney | null = null;
   journeyBaseline: JourneyBaseline | null = null;
@@ -118,6 +126,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
   journeyNudgeOpen = false;
   panoDrawings: PanoDrawing[] = [];
   activeSpotKey: string | null = null;
+  svDrawingRangeM = readSvDrawingRangeM();
   viewportMode: ViewportMode = detectViewportMode();
   streetViewContext: StreetViewContext | null = readStreetViewContext();
   activeTool: ToolId = "brush";
@@ -149,15 +158,19 @@ export class DrawingOverlay implements DrawingOverlayHost {
 
   private constructor() {
     const { host, root, bar } = createShadowDom();
-    const { canvas, sizeCursorEl, ctx } = createCanvas(root, bar);
+    const { canvas, sizeCursorEl, svMinimapWrap, svMinimapCanvas, ctx, svMinimapCtx } =
+      createCanvas(root, bar);
     const panel = queryPanelElements(bar);
 
     this.hostEl = host;
     this.root = root;
     this.canvas = canvas;
     this.sizeCursorEl = sizeCursorEl;
+    this.svMinimapWrap = svMinimapWrap;
+    this.svMinimapCanvas = svMinimapCanvas;
     this.bar = bar;
     this.ctx = ctx;
+    this.svMinimapCtx = svMinimapCtx;
     this.swatchHost = panel.swatchHost;
     this.swatchesWrap = panel.swatchesWrap;
     this.pickHintEl = panel.pickHintEl;
@@ -183,7 +196,11 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.journeyDiaryEl = panel.journeyDiaryEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;
-    this.svWalkLinksEl = panel.svWalkLinksEl;
+    this.svRangeWrap = panel.svRangeWrap;
+    this.svDrawingRangeEl = panel.svDrawingRangeEl;
+    this.svDrawingRangeValEl = panel.svDrawingRangeValEl;
+    this.svMinimapSettingWrap = panel.svMinimapSettingWrap;
+    this.svMinimapEl = panel.svMinimapEl;
 
     document.documentElement.appendChild(host);
   }

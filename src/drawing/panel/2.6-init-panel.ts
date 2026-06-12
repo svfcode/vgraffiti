@@ -24,7 +24,7 @@ import { initJourneyCloudSync } from "../inc/journey-cloud-sync";
 import { applyJourneyDeepLink, initJourneyDeepLink } from "../inc/journey-deep-link";
 import { initPanelViewportMode } from "../inc/panel-viewport-mode";
 import { bindDiaryPanelEvents, syncDiaryPanel } from "../inc/handle-pano";
-import { bindSvWalkLinksSetting } from "../inc/sv-walk-links";
+import { bindSvPanelSettings } from "../inc/sv-panel-settings";
 
 export function queryPanelElements(bar: HTMLDivElement): PanelElements {
   return {
@@ -53,7 +53,11 @@ export function queryPanelElements(bar: HTMLDivElement): PanelElements {
     cloudSyncBtn: bar.querySelector<HTMLButtonElement>("#vgf-cloud-sync")!,
     undoBtn: bar.querySelector<HTMLButtonElement>("#vgf-undo")!,
     redoBtn: bar.querySelector<HTMLButtonElement>("#vgf-redo")!,
-    svWalkLinksEl: bar.querySelector<HTMLInputElement>("#vgf-sv-walk-links")!,
+    svRangeWrap: bar.querySelector<HTMLLabelElement>("#vgf-sv-range-wrap")!,
+    svDrawingRangeEl: bar.querySelector<HTMLInputElement>("#vgf-sv-drawing-range")!,
+    svDrawingRangeValEl: bar.querySelector<HTMLSpanElement>("#vgf-sv-drawing-range-val")!,
+    svMinimapSettingWrap: bar.querySelector<HTMLLabelElement>("#vgf-sv-minimap-wrap")!,
+    svMinimapEl: bar.querySelector<HTMLInputElement>("#vgf-sv-minimap")!,
   };
 }
 
@@ -79,7 +83,7 @@ export async function initPanel(host: DrawingOverlayHost): Promise<() => void> {
 
   bindJourneyPanelEvents(host);
   bindDiaryPanelEvents(host);
-  bindSvWalkLinksSetting(host);
+  bindSvPanelSettings(host);
   initActiveJourney(host);
   await initJourneyStorage(host);
   syncJourneyPanel(host);
