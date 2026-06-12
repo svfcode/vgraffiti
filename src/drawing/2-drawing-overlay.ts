@@ -109,6 +109,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
   readonly journeyDiaryEl: HTMLTextAreaElement;
   readonly journeySaveBtn: HTMLButtonElement;
   readonly journeyListEl: HTMLDivElement;
+  readonly svWalkLinksEl: HTMLInputElement;
 
   activeJourney: ActiveJourney | null = null;
   journeyBaseline: JourneyBaseline | null = null;
@@ -182,6 +183,7 @@ export class DrawingOverlay implements DrawingOverlayHost {
     this.journeyDiaryEl = panel.journeyDiaryEl;
     this.journeySaveBtn = panel.journeySaveBtn;
     this.journeyListEl = panel.journeyListEl;
+    this.svWalkLinksEl = panel.svWalkLinksEl;
 
     document.documentElement.appendChild(host);
   }

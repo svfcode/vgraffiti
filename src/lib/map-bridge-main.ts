@@ -17,6 +17,7 @@ import {
   PANO_CONTEXT_MSG,
   SET_STREET_VIEW_POV_MSG,
   STROKES_MSG,
+  SV_WALK_LINKS_MSG,
   ZOOM_STATE_MSG,
   ZOOM_VISUAL_MSG,
   type GeoStrokePayload,
@@ -67,6 +68,61 @@ export function runMapBridge(): void {
     } catch {
       return false;
     }
+  }
+
+  let walkLinksTimer: ReturnType<typeof setInterval> | null = null;
+
+  function pulseStreetViewHover(): void {
+    if (!isStreetViewPage()) {
+      return;
+    }
+    const scene = document.querySelector(".widget-scene") as HTMLElement | null;
+    if (!scene) {
+      return;
+    }
+    const rect = scene.getBoundingClientRect();
+    if (rect.width < 80 || rect.height < 80) {
+      return;
+    }
+    const probes = [
+      { x: 0.5, y: 0.62 },
+      { x: 0.34, y: 0.58 },
+      { x: 0.66, y: 0.58 },
+      { x: 0.5, y: 0.5 },
+      { x: 0.42, y: 0.66 },
+      { x: 0.58, y: 0.66 },
+    ];
+    const targets = new Set<HTMLElement>([scene]);
+    for (const el of scene.querySelectorAll<HTMLElement>(".scene-core-webgl, canvas")) {
+      targets.add(el);
+    }
+    for (const target of targets) {
+      for (const p of probes) {
+        const clientX = rect.left + rect.width * p.x;
+        const clientY = rect.top + rect.height * p.y;
+        const init: MouseEventInit = {
+          bubbles: true,
+          cancelable: true,
+          clientX,
+          clientY,
+          view: window,
+        };
+        target.dispatchEvent(new MouseEvent("mousemove", init));
+        target.dispatchEvent(new PointerEvent("pointermove", { ...init, pointerId: 1, pointerType: "mouse" }));
+      }
+    }
+  }
+
+  function setWalkLinksAlways(enabled: boolean): void {
+    if (walkLinksTimer) {
+      clearInterval(walkLinksTimer);
+      walkLinksTimer = null;
+    }
+    if (!enabled) {
+      return;
+    }
+    pulseStreetViewHover();
+    walkLinksTimer = setInterval(pulseStreetViewHover, 280);
   }
 
   // Нативный слой ymaps (вариант A): завершённые штрихи как гео-объекты.
@@ -925,6 +981,10 @@ export function runMapBridge(): void {
     }
     if (data.type === SET_STREET_VIEW_POV_MSG) {
       applyStreetViewPov(data);
+      return;
+    }
+    if (data.type === SV_WALK_LINKS_MSG) {
+      setWalkLinksAlways(!!data.enabled);
       return;
     }
     if (data.type !== FOLLOW_MSG) {

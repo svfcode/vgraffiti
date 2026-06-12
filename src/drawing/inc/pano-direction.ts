@@ -4,13 +4,15 @@ import { normalizeHeadingDelta } from "../../lib/streetview-context";
 import type { MapContext } from "../../lib/map-context";
 import { mapGeoToScreen, type ViewportFrame } from "../../lib/map-projection";
 import { getStreetViewDrawFrame } from "./sv-stroke";
+import { flushPanoStrokes } from "./handle-pano";
+import { isSameSpot } from "./pano-types";
 
 /** Ближе этого точку считаем «текущей» — стрелку не показываем. */
 const SAME_SPOT_M = 3;
 /** До какой дистанции показывать стрелку-указатель в Street View, м. */
 const SV_MAX_M = 5000;
-/** Прозрачность стрелок. */
-const ARROW_ALPHA = 0.4;
+/** Прозрачность стрелок к рисункам. */
+const ARROW_ALPHA = 0.72;
 /** Цвет стрелок. */
 const ARROW_COLOR = "#8ab4f8";
 /** Отступ стрелки от края экрана на 2D-карте, px. */
@@ -33,23 +35,6 @@ function bearingDeg(a: LatLng, b: LatLng): number {
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-function nearestDrawing(
-  host: DrawingOverlayHost,
-  from: LatLng,
-): { d: LatLng; dist: number } | null {
-  let best: { d: LatLng; dist: number } | null = null;
-  for (const d of host.panoDrawings) {
-    if (!d.strokes.length) {
-      continue;
-    }
-    const dist = metersBetween(from, d);
-    if (!best || dist < best.dist) {
-      best = { d, dist };
-    }
-  }
-  return best;
-}
-
 function formatDist(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} км` : `${Math.round(m)} м`;
 }
@@ -61,11 +46,12 @@ function drawChevron(
   y: number,
   rot: number,
   size: number,
+  alpha = ARROW_ALPHA,
 ): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rot);
-  ctx.globalAlpha = ARROW_ALPHA;
+  ctx.globalAlpha = alpha;
   ctx.beginPath();
   ctx.moveTo(0, -size);
   ctx.lineTo(size * 0.66, size * 0.55);
@@ -83,8 +69,8 @@ function drawChevron(
 
 function drawLabel(ctx: CanvasRenderingContext2D, x: number, y: number, text: string): void {
   ctx.save();
-  ctx.globalAlpha = Math.min(1, ARROW_ALPHA + 0.25);
-  ctx.font = "bold 13px sans-serif";
+  ctx.globalAlpha = 0.92;
+  ctx.font = "bold 12px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   ctx.lineWidth = 3;
@@ -95,22 +81,71 @@ function drawLabel(ctx: CanvasRenderingContext2D, x: number, y: number, text: st
   ctx.restore();
 }
 
-/** Street View: компасная стрелка снизу по центру к ближайшему рисунку. */
+type DrawingTarget = { lat: number; lng: number; dist: number };
+
+function remoteDrawingTargets(host: DrawingOverlayHost, cam: StreetViewContext): DrawingTarget[] {
+  flushPanoStrokes(host);
+  const out: DrawingTarget[] = [];
+  const seen = new Set<string>();
+  for (const d of host.panoDrawings) {
+    if (!d.strokes.length || isSameSpot(d, cam)) {
+      continue;
+    }
+    const dist = metersBetween(cam, d);
+    if (dist <= SAME_SPOT_M || dist > SV_MAX_M) {
+      continue;
+    }
+    const key = d.panoId ?? `${d.lat.toFixed(5)},${d.lng.toFixed(5)}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    out.push({ lat: d.lat, lng: d.lng, dist });
+  }
+  out.sort((a, b) => a.dist - b.dist);
+  return out;
+}
+
+/** Street View: стрелки к рисункам прогулки (все точки, не только ближайшая). */
 export function renderSvDirectionArrow(
   host: DrawingOverlayHost,
   ctx: CanvasRenderingContext2D,
   cam: StreetViewContext,
 ): void {
-  const near = nearestDrawing(host, cam);
-  if (!near || near.dist <= SAME_SPOT_M || near.dist > SV_MAX_M) {
+  const targets = remoteDrawingTargets(host, cam);
+  if (targets.length === 0) {
     return;
   }
   const frame = getStreetViewDrawFrame(host.canvas);
-  const rel = normalizeHeadingDelta(cam.heading, bearingDeg(cam, near.d));
-  const x = frame.cx;
-  const y = frame.cy + frame.h * 0.3;
-  drawChevron(ctx, x, y, (rel * Math.PI) / 180, 30);
-  drawLabel(ctx, x, y + 34, formatDist(near.dist));
+  const pad = 42;
+  const left = frame.cx - frame.w / 2 + pad;
+  const right = frame.cx + frame.w / 2 - pad;
+  const top = frame.cy - frame.h / 2 + pad;
+  const bottom = frame.cy + frame.h / 2 - pad;
+
+  const nearest = targets[0]!;
+  const nearRel = normalizeHeadingDelta(cam.heading, bearingDeg(cam, nearest));
+  drawChevron(ctx, frame.cx, frame.cy + frame.h * 0.28, (nearRel * Math.PI) / 180, 28);
+  drawLabel(ctx, frame.cx, frame.cy + frame.h * 0.28 + 32, formatDist(nearest.dist));
+
+  for (let i = 1; i < Math.min(targets.length, 5); i++) {
+    const t = targets[i]!;
+    const rel = normalizeHeadingDelta(cam.heading, bearingDeg(cam, t));
+    const rad = (rel * Math.PI) / 180;
+    const dirX = Math.sin(rad);
+    const dirY = -Math.cos(rad);
+    const halfW = frame.w / 2 - pad;
+    const halfH = frame.h / 2 - pad;
+    const scale = Math.min(
+      halfW / Math.max(Math.abs(dirX), 1e-6),
+      halfH / Math.max(Math.abs(dirY), 1e-6),
+    );
+    const x = frame.cx + dirX * scale;
+    const y = frame.cy + dirY * scale;
+    const clampedX = Math.max(left, Math.min(right, x));
+    const clampedY = Math.max(top, Math.min(bottom, y));
+    drawChevron(ctx, clampedX, clampedY, rad + Math.PI / 2, 20, 0.55);
+  }
 }
 
 /** 2D-карта: стрелка у края экрана к ближайшему рисунку (если он вне видимой области). */
@@ -120,18 +155,28 @@ export function renderMapDirectionArrow(
   map: MapContext,
   frame: ViewportFrame,
 ): void {
-  const near = nearestDrawing(host, { lat: map.lat, lng: map.lng });
-  if (!near) {
+  flushPanoStrokes(host);
+  let best: { d: LatLng; dist: number } | null = null;
+  for (const d of host.panoDrawings) {
+    if (!d.strokes.length) {
+      continue;
+    }
+    const dist = metersBetween(map, d);
+    if (!best || dist < best.dist) {
+      best = { d, dist };
+    }
+  }
+  if (!best) {
     return;
   }
-  const pos = mapGeoToScreen(near.d.lat, near.d.lng, map, frame);
+  const pos = mapGeoToScreen(best.d.lat, best.d.lng, map, frame);
   const left = frame.cx - frame.w / 2;
   const right = frame.cx + frame.w / 2;
   const top = frame.cy - frame.h / 2;
   const bottom = frame.cy + frame.h / 2;
   const m = MAP_EDGE_PAD;
   if (pos.x >= left + m && pos.x <= right - m && pos.y >= top + m && pos.y <= bottom - m) {
-    return; // точка видна на экране — стрелка не нужна
+    return;
   }
   const ang = Math.atan2(pos.y - frame.cy, pos.x - frame.cx);
   const halfW = frame.w / 2 - m;
@@ -145,5 +190,5 @@ export function renderMapDirectionArrow(
   const ex = frame.cx + dirX * scale;
   const ey = frame.cy + dirY * scale;
   drawChevron(ctx, ex, ey, ang + Math.PI / 2, 26);
-  drawLabel(ctx, ex, ey + 18, formatDist(near.dist));
+  drawLabel(ctx, ex, ey + 18, formatDist(best.dist));
 }

@@ -89,7 +89,22 @@ export function syncSpotFromPage(host: DrawingOverlayHost, options?: { force?: b
   const newKey = currentSpotKey(sv);
   if (!options?.force && newKey === host.activeSpotKey) {
     host.streetViewContext = sv;
+    if (host.strokes.length === 0) {
+      const entry = findPanoDrawing(host.panoDrawings, sv);
+      if (entry && isSameSpot(entry, sv) && entry.strokes.length > 0) {
+        loadStrokesForSpot(host, newKey, sv);
+        return true;
+      }
+    }
     return false;
+  }
+  if (!options?.force && host.activeSpotKey) {
+    const entry = findPanoDrawing(host.panoDrawings, sv);
+    if (entry && isSameSpot(entry, sv)) {
+      host.streetViewContext = sv;
+      loadStrokesForSpot(host, newKey, sv);
+      return true;
+    }
   }
   applySpotChange(host, newKey, sv);
   return true;
@@ -120,14 +135,15 @@ export function onBridgePanoId(host: DrawingOverlayHost, panoId: string): void {
     return;
   }
   const newKey = `id:${panoId}`;
-  if (newKey === host.activeSpotKey) {
-    return;
-  }
   const base = host.streetViewContext ?? readStreetViewContext();
   if (!base) {
     return;
   }
-  const sv: StreetViewContext = { ...base, panoId };
+  const sv: StreetViewContext = { ...readStreetViewContext(), ...base, panoId };
+  if (newKey === host.activeSpotKey) {
+    host.streetViewContext = sv;
+    return;
+  }
   applySpotChange(host, newKey, sv);
   host.scheduleRedraw();
 }

@@ -279,6 +279,7 @@ export type PanelElements = {
   cloudSyncBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   redoBtn: HTMLButtonElement;
+  svWalkLinksEl: HTMLInputElement;
 };
 
 export type PanVisual = { dx: number; dy: number; dragging: boolean };

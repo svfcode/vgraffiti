@@ -65,9 +65,6 @@ export function isSameSpot(
   if (a.panoId && b.panoId) {
     return a.panoId === b.panoId;
   }
-  if (a.panoId || b.panoId) {
-    return false;
-  }
   return isSameLocation(a, b);
 }
 

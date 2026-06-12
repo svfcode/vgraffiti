@@ -581,6 +581,22 @@ canvas.layer.mode-wall-place {
   width: 100%;
   cursor: pointer;
 }
+.more-sv-walk {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11px;
+  color: #bdc1c6;
+  cursor: pointer;
+  user-select: none;
+}
+.more-sv-walk input {
+  cursor: pointer;
+  accent-color: #8ab4f8;
+}
 .tools {
   display: flex;
   gap: 4px;

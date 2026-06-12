@@ -19,6 +19,8 @@ export const SET_CENTER_MSG = "vgf:mapSetCenter";
 export const SET_STREET_VIEW_POV_MSG = "vgf:streetViewSetPov";
 /** Bridge → overlay: pano id из URL или сетевых ответов Google. */
 export const PANO_CONTEXT_MSG = "vgf:panoContext";
+/** Overlay → bridge: держать стрелки хода Street View видимыми (синтетический hover). */
+export const SV_WALK_LINKS_MSG = "vgf:svWalkLinks";
 
 /** Гео-штрих для нативного рендера (подмножество StoredStroke без pressure). */
 export type GeoStrokePayload =

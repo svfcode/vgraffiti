@@ -5,14 +5,15 @@ import { renderEraserStroke, renderStroke } from "./inc/stroke";
 import { getMapViewportFrame } from "../lib/map-projection";
 import { getDisplayStrokes } from "./handlers/2.6.5-handle-journeys";
 import { spotSignatureFromHref, type StreetViewContext } from "../lib/streetview-context";
-import { spotKeyFromSv } from "./inc/pano-types";
+import { filterAnchoredStrokes, findPanoDrawing, isSameSpot, spotKeyFromSv } from "./inc/pano-types";
+import { flushPanoStrokes } from "./inc/handle-pano";
 import { getStreetViewDrawFrame, projectStreetViewStroke } from "./inc/sv-stroke";
 import { renderMapDirectionArrow, renderSvDirectionArrow } from "./inc/pano-direction";
 import { getSvCalibration } from "../lib/streetview-projection";
 import type { DrawingOverlayHost, StoredStroke } from "./2.1-overlay-types";
 
 /** Временный отладочный HUD для диагностики смены панорамы. */
-const VGF_DEBUG_SV = true;
+const VGF_DEBUG_SV = false;
 
 export function scheduleRedraw(host: DrawingOverlayHost): void {
   cancelAnimationFrame(host.raf);
@@ -51,6 +52,22 @@ function drawDebugHud(host: DrawingOverlayHost): void {
   c.restore();
 }
 
+function strokesForCurrentView(host: DrawingOverlayHost, sv: StreetViewContext): StoredStroke[] {
+  flushPanoStrokes(host);
+  const liveKey = spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv);
+  if (host.strokes.length > 0 && host.activeSpotKey === liveKey) {
+    return host.strokes;
+  }
+  const entry = findPanoDrawing(host.panoDrawings, sv);
+  if (entry && isSameSpot(entry, sv) && entry.strokes.length > 0) {
+    return filterAnchoredStrokes(entry.strokes);
+  }
+  if (host.strokes.length > 0 && entry && isSameSpot(entry, sv)) {
+    return host.strokes;
+  }
+  return host.strokes;
+}
+
 function renderSvStrokeList(
   ctx: CanvasRenderingContext2D,
   strokes: StoredStroke[],
@@ -86,13 +103,11 @@ export function redraw(host: DrawingOverlayHost): void {
 
   if (host.viewportMode === "streetview") {
     const sv = getStreetViewContext(host);
-    if (
-      sv &&
-      host.strokes.length > 0 &&
-      host.activeSpotKey &&
-      host.activeSpotKey === (spotSignatureFromHref(location.href) ?? spotKeyFromSv(sv))
-    ) {
-      renderSvStrokeList(c, host.strokes, sv, host);
+    if (sv) {
+      const strokes = strokesForCurrentView(host, sv);
+      if (strokes.length > 0) {
+        renderSvStrokeList(c, strokes, sv, host);
+      }
     }
     if (sv) {
       renderSvDirectionArrow(host, c, sv);
