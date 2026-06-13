@@ -17,7 +17,7 @@ function readWpRestNonce(): string | null {
   }
 }
 
-/** Запрос сессии с cookies сайта (вызывать только из content script на drawonit.loc). */
+/** Запрос сессии с cookies сайта (вызывать только из content script на vgraffiti.ru). */
 export async function fetchSiteSession(): Promise<SiteSyncResult> {
   const headers: Record<string, string> = { Accept: "application/json" };
   const nonce = readWpRestNonce();

@@ -3,11 +3,12 @@ import { clearSession, getSession, setSession } from "./session";
 import type { AuthBgMessage } from "./constants";
 import type { ApiResult } from "../lib/api-request";
 import { apiRequest } from "../lib/api-request";
+import { SITE_HOST } from "../lib/constants";
 
 type Result<T> = ApiResult<T>;
 
 const NEED_API_HOST_HINT =
-  "Нет доступа к drawonit.loc. Проверьте разрешения расширения в браузере.";
+  `Нет доступа к ${SITE_HOST}. Проверьте разрешения расширения в браузере.`;
 
 type PermissionCheck = () => Promise<Result<boolean>>;
 

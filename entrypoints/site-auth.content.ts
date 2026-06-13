@@ -1,7 +1,12 @@
 import { clearSiteSession, fetchSiteSession } from "../src/auth/site-sync";
 
 export default defineContentScript({
-  matches: ["*://drawonit.loc/*"],
+  matches: [
+    "*://vgraffiti.ru/*",
+    "*://*.vgraffiti.ru/*",
+    "*://vgraffiti.loc/*",
+    "*://*.vgraffiti.loc/*",
+  ],
   runAt: "document_idle",
   main() {
     void applySiteSession();

@@ -1,4 +1,4 @@
-import { SITE_LOGIN_URL } from "../lib/constants";
+import { SITE_HOST, SITE_LOGIN_URL } from "../lib/constants";
 import { STORAGE_ACCESS_TOKEN } from "../auth/constants";
 import { getSession } from "../auth/session";
 import { isExtensionContextValid } from "../lib/extension-context";
@@ -31,7 +31,7 @@ export function mountGuestPrompt(onInvalidate?: (teardown: () => void) => void):
   link.href = SITE_LOGIN_URL;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
-  link.textContent = "Войти на drawonit.loc";
+  link.textContent = `Войти на ${SITE_HOST}`;
   link.style.cssText = "color:#8ab4f8;font-weight:500;text-decoration:none;";
   link.addEventListener("mouseenter", () => {
     link.style.textDecoration = "underline";

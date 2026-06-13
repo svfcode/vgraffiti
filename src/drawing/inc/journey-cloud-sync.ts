@@ -4,6 +4,7 @@ import { getApiBaseUrl } from "../../lib/storage";
 import { formatBgError } from "../../lib/extension-api";
 import { isExtensionContextValid } from "../../lib/extension-context";
 import { bgSyncJourneys, type JourneySyncResponse } from "../../lib/journey-cloud-api";
+import { SITE_HOST } from "../../lib/constants";
 import { cloneStrokes, type DrawingOverlayHost } from "../2.1-overlay-types";
 import { onPanoChanged, syncDiaryPanel } from "./handle-pano";
 import { clonePanoDrawings } from "./pano-types";
@@ -41,7 +42,7 @@ let boundHost: DrawingOverlayHost | null = null;
 function cloudTitle(state: CloudSyncUiState, error: string | null, email: string | null): string {
   switch (state) {
     case "guest":
-      return "Облако: войдите на drawonit.loc";
+      return `Облако: войдите на ${SITE_HOST}`;
     case "no-api":
       return "Облако: сервер недоступен";
     case "syncing":

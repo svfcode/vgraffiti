@@ -5,6 +5,7 @@ import {
   isAuthBgMessage,
 } from "../src/auth/background-handlers";
 import { originFromApiBase } from "../src/lib/url";
+import { SITE_HOST } from "../src/lib/constants";
 import type { MapContext } from "../src/lib/map-context";
 
 type Ok<T> = { ok: true; data: T };
@@ -20,7 +21,7 @@ type BgMessage =
   | { type: "api.fetchImageDataUrl"; url: string };
 
 const NEED_API_HOST_HINT =
-  "Нет доступа к drawonit.loc. Переустановите расширение или проверьте разрешения в настройках браузера.";
+  `Нет доступа к ${SITE_HOST}. Переустановите расширение или проверьте разрешения в настройках браузера.`;
 
 /** В SW нельзя вызывать chrome.permissions.request (нет user gesture) — только проверка. */
 async function hasApiOriginPermission(): Promise<Result<boolean>> {
@@ -195,11 +196,11 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
 }
 
 async function requestSiteSync(): Promise<Result<unknown>> {
-  const tabs = await chrome.tabs.query({ url: ["*://drawonit.loc/*"] });
+  const tabs = await chrome.tabs.query({ url: [`*://${SITE_HOST}/*`, "*://vgraffiti.loc/*"] });
   if (tabs.length === 0) {
     return {
       ok: false,
-      error: "Откройте drawonit.loc в браузере, войдите в аккаунт и повторите.",
+      error: `Откройте ${SITE_HOST} в браузере, войдите в аккаунт и повторите.`,
     };
   }
   for (const tab of tabs) {
@@ -217,7 +218,7 @@ async function requestSiteSync(): Promise<Result<unknown>> {
   }
   return {
     ok: false,
-    error: "Откройте любую страницу drawonit.loc (не карту), затем повторите.",
+    error: `Откройте любую страницу ${SITE_HOST} (не карту), затем повторите.`,
   };
 }
 

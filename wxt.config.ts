@@ -4,7 +4,7 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   manifest: {
     name: "vgraffiti",
-    description: "Рисование поверх карт (Google Maps, Яндекс.Карты) с синхронизацией по REST",
+    description: "Запомнят все, запомнят всё! Рисуйте на Street View и картах — метки остаются на маршруте.",
     permissions: ["storage", "alarms"],
     host_permissions: [
       "https://www.google.com/*",
@@ -15,10 +15,12 @@ export default defineConfig({
       "https://yandex.by/*",
       "https://yandex.kz/*",
       "https://maps.yandex.ru/*",
-      "http://drawonit.loc/*",
-      "http://*.drawonit.loc/*",
-      "https://drawonit.loc/*",
-      "https://*.drawonit.loc/*",
+      "https://vgraffiti.ru/*",
+      "https://*.vgraffiti.ru/*",
+      "http://vgraffiti.loc/*",
+      "http://*.vgraffiti.loc/*",
+      "https://vgraffiti.loc/*",
+      "https://*.vgraffiti.loc/*",
     ],
     minimum_chrome_version: "120",
     optional_host_permissions: ["https://*/*", "http://*/*"],

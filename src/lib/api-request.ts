@@ -1,5 +1,6 @@
 import { getSession } from "../auth/session";
 import { getApiBaseUrl } from "./storage";
+import { SITE_HOST } from "./constants";
 
 export type ApiOk<T> = { ok: true; data: T };
 export type ApiErr = { ok: false; error: string; status?: number; body?: string };
@@ -38,7 +39,7 @@ export async function apiRequest(opts: {
   if (opts.auth === "bearer") {
     const { accessToken } = await getSession();
     if (!accessToken) {
-      return { ok: false, error: "Нет сессии: войдите на drawonit.loc" };
+      return { ok: false, error: `Нет сессии: войдите на ${SITE_HOST}` };
     }
     headers.Authorization = `Bearer ${accessToken}`;
   }

@@ -10,6 +10,7 @@ import { bgUploadDrawing } from "./extension-api";
 import { getApiBaseUrl } from "./storage";
 import { getSession } from "../auth/session";
 import { mustUploadViaBackground, originFromApiBase } from "./url";
+import { SITE_HOST } from "./constants";
 
 export type DrawingUploadPayload = {
   imageBase64: string;
@@ -26,7 +27,7 @@ export async function uploadDrawing(payload: DrawingUploadPayload): Promise<BgRe
 
   const { accessToken } = await getSession();
   if (!accessToken) {
-    return { ok: false, error: "Нет сессии: войдите на drawonit.loc" };
+    return { ok: false, error: `Нет сессии: войдите на ${SITE_HOST}` };
   }
 
   if (!payload.imageBase64) {

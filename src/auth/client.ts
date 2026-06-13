@@ -4,7 +4,7 @@ export async function bgLogout(): Promise<BgResult> {
   return sendToBackground({ type: "api.logout" });
 }
 
-/** Попросить вкладку drawonit.loc синхронизировать сессию с сайта. */
+/** Попросить вкладку vgraffiti.ru синхронизировать сессию с сайта. */
 export async function bgRequestSiteSync(): Promise<BgResult> {
   return sendToBackground({ type: "auth.requestSiteSync" });
 }
