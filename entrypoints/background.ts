@@ -196,26 +196,50 @@ async function handleMessage(msg: BgMessage): Promise<Result<unknown>> {
 }
 
 async function requestSiteSync(): Promise<Result<unknown>> {
-  const tabs = await chrome.tabs.query({ url: [`*://${SITE_HOST}/*`, "*://vgraffiti.loc/*"] });
+  const sitePatterns = [
+    `*://${SITE_HOST}/*`,
+    `*://*.${SITE_HOST}/*`,
+    "*://vgraffiti.loc/*",
+    "*://*.vgraffiti.loc/*",
+  ];
+  const tabs = await chrome.tabs.query({ url: sitePatterns });
   if (tabs.length === 0) {
     return {
       ok: false,
       error: `Откройте ${SITE_HOST} в браузере, войдите в аккаунт и повторите.`,
     };
   }
-  for (const tab of tabs) {
+
+  const ordered = [...tabs].sort(
+    (a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0),
+  );
+
+  let lastGuest: { ok: false; guest: true } | null = null;
+
+  for (const tab of ordered) {
     if (tab.id == null) {
       continue;
     }
     try {
       const r = await chrome.tabs.sendMessage(tab.id, { type: "auth.syncNow" });
-      if (r && typeof r === "object" && ("ok" in r || "guest" in r)) {
+      if (!r || typeof r !== "object") {
+        continue;
+      }
+      if ("ok" in r && r.ok === true) {
         return { ok: true, data: r };
+      }
+      if ("guest" in r && r.guest === true) {
+        lastGuest = r as { ok: false; guest: true };
       }
     } catch {
       /* вкладка без content script */
     }
   }
+
+  if (lastGuest) {
+    return { ok: true, data: lastGuest };
+  }
+
   return {
     ok: false,
     error: `Откройте любую страницу ${SITE_HOST} (не карту), затем повторите.`,

@@ -50,7 +50,9 @@ export function initAuthPopup(deps: AuthPopupDeps): void {
     }
     const data = r.data as { guest?: boolean; email?: string } | undefined;
     if (data?.guest) {
-      deps.showErr("Вы не вошли на сайте. Откройте ссылку выше и войдите в аккаунт.");
+      deps.showErr(
+        "Вы не вошли на сайте. Откройте vgraffiti.ru, войдите, обновите эту вкладку (F5) и нажмите «Проверить вход» снова.",
+      );
       await refreshAuthPanels();
       return;
     }
