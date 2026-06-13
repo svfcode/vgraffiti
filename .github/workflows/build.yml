@@ -30,16 +30,10 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Package flat zip
-        run: |
-          cd .output/chrome-mv3
-          zip -r ../vgraffiti-extension.zip .
-          unzip -l ../vgraffiti-extension.zip | head -15
-
-      - name: Upload extension zip
+      - name: Upload extension (flat folder)
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: vgraffiti-extension
-          path: .output/vgraffiti-extension.zip
+          path: .output/chrome-mv3
           retention-days: 30

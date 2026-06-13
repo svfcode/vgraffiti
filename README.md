@@ -39,9 +39,7 @@ npm run build
 npm run zip
 ```
 
-Последнюю стабильную сборку можно скачать: [releases/latest](https://github.com/svfcode/vgraffiti/releases/latest) (`vgraffiti-extension.zip`).
-
-**Важно:** после распаковки в папке должен лежать `manifest.json` — не в подпапке. Не используйте «Code → Download ZIP» (это исходники без сборки).
+`npm run zip` создаёт **плоский** архив `.output/vgraffiti-*-chrome.zip`: в корне лежит `manifest.json`, без вложенной папки.
 
 ### CI (GitHub Actions)
 
@@ -52,6 +50,12 @@ gh workflow run build
 ```
 
 Либо в GitHub: **Actions → Build extension → Run workflow**.
+
+В **Artifacts** скачайте `vgraffiti-extension` — GitHub отдаёт его как один `.zip`. После распаковки в корне будут `manifest.json`, `background.js` и т.д. (не нужно распаковывать второй архив внутри).
+
+Для раздачи ученикам можно положить этот распакованный архив (или результат `npm run zip`) в `wp-content/uploads/vgraffiti/vgraffiti-chrome.zip`.
+
+**Важно:** после распаковки в папке должен лежать `manifest.json` — не в подпапке. Не используйте «Code → Download ZIP» (это исходники без сборки). Не архивируйте повторно уже готовый `.zip` из Artifacts — внутри снова окажется zip.
 
 ## Стек
 
