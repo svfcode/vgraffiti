@@ -39,7 +39,9 @@ npm run build
 npm run zip
 ```
 
-Артефакты: папка `.output/chrome-mv3` и архив `.output/vgraffiti-*-chrome.zip`.
+Артефакты: `vgraffiti-extension.zip` в [Releases](https://github.com/svfcode/vgraffiti/releases/latest) (прямая ссылка для установки).
+
+**Важно:** после распаковки в папке должен лежать `manifest.json` — не в подпапке. Не используйте «Code → Download ZIP» (это исходники без сборки).
 
 ### CI (GitHub Actions)
 

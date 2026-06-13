@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -30,21 +33,30 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Zip
-        run: npm run zip
+      - name: Package flat zip
+        run: |
+          cd .output/chrome-mv3
+          zip -r ../vgraffiti-extension.zip .
+          unzip -l ../vgraffiti-extension.zip | head -15
 
-      - name: Upload unpacked build
+      - name: Upload extension zip
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: chrome-mv3
-          path: .output/chrome-mv3/
+          name: vgraffiti-extension
+          path: .output/vgraffiti-extension.zip
           retention-days: 30
 
-      - name: Upload zip
+      - name: Publish GitHub Release
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: softprops/action-gh-release@v2
         with:
-          name: vgraffiti-chrome-zip
-          path: .output/*-chrome.zip
-          retention-days: 30
+          tag_name: build-${{ github.run_number }}
+          name: vgraffiti extension (build ${{ github.run_number }})
+          body: |
+            Сборка расширения из main.
+
+            **Установка:** скачайте `vgraffiti-extension.zip` → распакуйте → в выбранной папке должен лежать `manifest.json` (не в подпапке) → «Загрузить распакованное» в браузере.
+          files: .output/vgraffiti-extension.zip
+          make_latest: true
+          prerelease: true
