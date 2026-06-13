@@ -39,6 +39,20 @@ npm run build
 npm run zip
 ```
 
+Артефакты: папка `.output/chrome-mv3` и архив `.output/vgraffiti-*-chrome.zip`.
+
+### CI (GitHub Actions)
+
+Сборка запускается автоматически при push в `main` и вручную:
+
+```bash
+gh workflow run build
+```
+
+Либо в GitHub: **Actions → Build extension → Run workflow**.
+
+Готовые файлы — в **Artifacts** у завершённого run (папка `chrome-mv3` и zip для установки в Chrome).
+
 ## Стек
 
 - [WXT](https://wxt.dev/) + TypeScript
