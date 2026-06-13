@@ -300,6 +300,8 @@ export type ActiveJourney = {
   name: string;
   diary: string;
   createdAt: number;
+  /** Время последнего редактирования названия/описания на сайте (мс). */
+  metaUpdatedAt?: number;
 };
 
 export interface DrawingOverlayHost extends PanelElements {

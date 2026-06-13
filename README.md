@@ -39,7 +39,7 @@ npm run build
 npm run zip
 ```
 
-Артефакты: `vgraffiti-extension.zip` в [Releases](https://github.com/svfcode/vgraffiti/releases/latest) (прямая ссылка для установки).
+Последнюю стабильную сборку можно скачать: [releases/latest](https://github.com/svfcode/vgraffiti/releases/latest) (`vgraffiti-extension.zip`).
 
 **Важно:** после распаковки в папке должен лежать `manifest.json` — не в подпапке. Не используйте «Code → Download ZIP» (это исходники без сборки).
 
@@ -52,8 +52,6 @@ gh workflow run build
 ```
 
 Либо в GitHub: **Actions → Build extension → Run workflow**.
-
-Готовые файлы — в **Artifacts** у завершённого run (папка `chrome-mv3` и zip для установки в Chrome).
 
 ## Стек
 

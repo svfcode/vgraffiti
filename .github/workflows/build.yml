@@ -7,9 +7,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -46,17 +43,3 @@ jobs:
           name: vgraffiti-extension
           path: .output/vgraffiti-extension.zip
           retention-days: 30
-
-      - name: Publish GitHub Release
-        if: github.event_name != 'pull_request'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ github.run_number }}
-          name: vgraffiti extension (build ${{ github.run_number }})
-          body: |
-            Сборка расширения из main.
-
-            **Установка:** скачайте `vgraffiti-extension.zip` → распакуйте → в выбранной папке должен лежать `manifest.json` (не в подпапке) → «Загрузить распакованное» в браузере.
-          files: .output/vgraffiti-extension.zip
-          make_latest: true
-          prerelease: true

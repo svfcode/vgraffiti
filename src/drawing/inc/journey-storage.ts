@@ -1,4 +1,5 @@
 import type { StoredStroke } from "../2.1-overlay-types";
+import { getStrokesGeoCenter } from "./journey-geo";
 import type { WalkLocation } from "./memory-types";
 import { normalizePanoDrawings, type PanoDrawing } from "./pano-types";
 
@@ -29,6 +30,11 @@ export type SavedJourney = {
   createdAt: number;
   updatedAt: number;
   sessionMode?: JourneySessionMode;
+  mapProvider?: "yandex" | "google";
+  anchorLat?: number | null;
+  anchorLng?: number | null;
+  /** Время последнего редактирования названия/описания на сайте (мс). */
+  metaUpdatedAt?: number;
 };
 
 const JOURNEYS_KEY = "journeys";
@@ -125,6 +131,63 @@ export function withSessionMode(j: SavedJourney): SavedJourney {
   return { ...j, sessionMode: inferSessionMode(j) };
 }
 
+export function journeyHasMapContent(j: Pick<SavedJourney, "strokes">): boolean {
+  return j.strokes.length > 0;
+}
+
+export function journeyHasStreetViewContent(
+  j: Pick<SavedJourney, "panoDrawings" | "diary" | "memories">,
+): boolean {
+  return (
+    (j.panoDrawings && j.panoDrawings.length > 0) ||
+    (j.memories && j.memories.length > 0) ||
+    !!j.diary?.trim()
+  );
+}
+
+export function journeyMatchesListMode(j: SavedJourney, mode: JourneySessionMode): boolean {
+  if (mode === "map") {
+    return journeyHasMapContent(j);
+  }
+  return inferSessionMode(j) === "streetview" || journeyHasStreetViewContent(j);
+}
+
+export function resolveSessionModeForSave(
+  viewport: "map" | "streetview",
+  mapStrokes: StoredStroke[],
+  panoDrawings: PanoDrawing[],
+  diary: string,
+  prior?: SavedJourney,
+): JourneySessionMode {
+  const hasMap = mapStrokes.length > 0;
+  const hasSv = panoDrawings.length > 0 || !!diary.trim();
+
+  if (hasMap && hasSv) {
+    return viewport === "streetview" ? "streetview" : "map";
+  }
+  if (hasSv) {
+    return "streetview";
+  }
+  if (hasMap) {
+    return "map";
+  }
+  return prior?.sessionMode ?? (viewport === "streetview" ? "streetview" : "map");
+}
+
+/** Точка для ссылки на карту / Street View. */
+export function journeyAnchor(
+  j: Pick<SavedJourney, "strokes" | "panoDrawings" | "anchorLat" | "anchorLng">,
+): { lat: number; lng: number } | null {
+  if (typeof j.anchorLat === "number" && typeof j.anchorLng === "number") {
+    return { lat: j.anchorLat, lng: j.anchorLng };
+  }
+  if (j.panoDrawings && j.panoDrawings.length > 0) {
+    const d = j.panoDrawings[0]!;
+    return { lat: d.lat, lng: d.lng };
+  }
+  return getStrokesGeoCenter(j.strokes);
+}
+
 export function generateJourneyId(): string {
   return `j_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -138,6 +201,10 @@ function isSavedJourney(v: unknown): v is SavedJourney {
     o.sessionMode === undefined ||
     o.sessionMode === "map" ||
     o.sessionMode === "streetview";
+  const providerOk =
+    o.mapProvider === undefined ||
+    o.mapProvider === "yandex" ||
+    o.mapProvider === "google";
   return (
     typeof o.id === "string" &&
     typeof o.name === "string" &&
@@ -145,6 +212,7 @@ function isSavedJourney(v: unknown): v is SavedJourney {
     typeof o.createdAt === "number" &&
     typeof o.updatedAt === "number" &&
     modeOk &&
+    providerOk &&
     (o.memories === undefined || Array.isArray(o.memories)) &&
     (o.panoDrawings === undefined || Array.isArray(o.panoDrawings)) &&
     (o.diary === undefined || typeof o.diary === "string")
@@ -315,6 +383,27 @@ export function mergeJourneyLists(local: SavedJourney[], remote: SavedJourney[])
       const merged = normalizeJourney(j);
       if (prev && (!merged.panoDrawings?.length) && prev.panoDrawings?.length) {
         merged.panoDrawings = prev.panoDrawings;
+      }
+      if (prev && merged.strokes.length === 0 && prev.strokes.length > 0) {
+        merged.strokes = prev.strokes;
+      }
+      if (typeof j.metaUpdatedAt === "number" && j.metaUpdatedAt > 0) {
+        if (!prev?.metaUpdatedAt || j.metaUpdatedAt >= prev.metaUpdatedAt) {
+          merged.name = j.name;
+          merged.diary = j.diary;
+          merged.metaUpdatedAt = j.metaUpdatedAt;
+        } else if (prev) {
+          merged.name = prev.name;
+          merged.diary = prev.diary;
+          merged.metaUpdatedAt = prev.metaUpdatedAt;
+        }
+      }
+      if (typeof j.anchorLat === "number" && typeof j.anchorLng === "number") {
+        merged.anchorLat = j.anchorLat;
+        merged.anchorLng = j.anchorLng;
+      } else if (prev?.anchorLat != null && prev.anchorLng != null) {
+        merged.anchorLat = prev.anchorLat;
+        merged.anchorLng = prev.anchorLng;
       }
       byId.set(j.id, withSessionMode(merged));
     }

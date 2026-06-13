@@ -127,16 +127,24 @@ async function applySyncResponse(host: DrawingOverlayHost, data: JourneySyncResp
   host.selectedJourneyIds = new Set(await loadVisibleJourneyIds());
 
   const activeId = host.activeJourney?.id;
-  if (activeId && !isJourneyDirty(host)) {
-    const remote = host.savedJourneys.find((j) => j.id === activeId);
-    if (remote && host.activeJourney) {
-      host.activeJourney.name = remote.name;
-      host.activeJourney.diary = remote.diary?.trim() ?? "";
-      host.strokes.splice(0, host.strokes.length, ...cloneStrokes(remote.strokes));
-      host.panoDrawings = clonePanoDrawings(remote.panoDrawings ?? []);
-      host.activeSpotKey = null;
-      host.journeyNameEl.value = remote.name;
+  const activeRemote = activeId ? host.savedJourneys.find((j) => j.id === activeId) : undefined;
+  if (activeRemote && host.activeJourney) {
+    if (
+      typeof activeRemote.metaUpdatedAt === "number" &&
+      activeRemote.metaUpdatedAt > 0 &&
+      (!host.activeJourney.metaUpdatedAt ||
+        activeRemote.metaUpdatedAt >= host.activeJourney.metaUpdatedAt)
+    ) {
+      host.activeJourney.name = activeRemote.name;
+      host.activeJourney.diary = activeRemote.diary?.trim() ?? "";
+      host.activeJourney.metaUpdatedAt = activeRemote.metaUpdatedAt;
+      host.journeyNameEl.value = activeRemote.name;
       host.journeyDiaryEl.value = host.activeJourney.diary;
+    }
+    if (!isJourneyDirty(host)) {
+      host.strokes.splice(0, host.strokes.length, ...cloneStrokes(activeRemote.strokes));
+      host.panoDrawings = clonePanoDrawings(activeRemote.panoDrawings ?? []);
+      host.activeSpotKey = null;
       setJourneyBaseline(host);
       if (host.viewportMode === "streetview") {
         onPanoChanged(host);

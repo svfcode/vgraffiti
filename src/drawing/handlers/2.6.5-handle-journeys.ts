@@ -18,12 +18,15 @@ import {
 import {
   createDefaultSessionName,
   generateJourneyId,
-  inferSessionMode,
+  journeyHasMapContent,
+  journeyMatchesListMode,
+  journeyAnchor,
   loadJourneys,
   loadVisibleJourneyIds,
   markJourneySyncPending,
   queueDeletedJourneyId,
   removeJourneyById,
+  resolveSessionModeForSave,
   saveVisibleJourneyIds,
   upsertJourney,
   type SavedJourney,
@@ -164,6 +167,7 @@ async function applySavedJourney(host: DrawingOverlayHost, journey: SavedJourney
     name: journey.name,
     diary: journey.diary?.trim() ?? "",
     createdAt: journey.createdAt,
+    metaUpdatedAt: journey.metaUpdatedAt,
   };
   host.strokes.splice(0, host.strokes.length, ...cloneStrokes(journey.strokes));
   host.panoDrawings = clonePanoDrawings(journey.panoDrawings ?? []);
@@ -375,7 +379,7 @@ function createJourneyIconBtn(
 
 function journeysForList(host: DrawingOverlayHost): SavedJourney[] {
   const mode = host.viewportMode === "streetview" ? "streetview" : "map";
-  return host.savedJourneys.filter((j) => inferSessionMode(j) === mode);
+  return host.savedJourneys.filter((j) => journeyMatchesListMode(j, mode));
 }
 
 function refreshJourneyList(host: DrawingOverlayHost): void {
@@ -393,7 +397,7 @@ function refreshJourneyList(host: DrawingOverlayHost): void {
           ? `Сохранённые прогулки (${journeys.length})`
           : "Сохранённые прогулки";
     } else {
-      const totalMap = host.savedJourneys.filter((j) => inferSessionMode(j) === "map").length;
+      const totalMap = host.savedJourneys.filter((j) => journeyHasMapContent(j)).length;
       const visibleCount = journeys.filter(
         (j) => j.id === activeId || host.selectedJourneyIds.has(j.id),
       ).length;
@@ -523,21 +527,53 @@ export async function onJourneySave(host: DrawingOverlayHost): Promise<void> {
   }
   const now = Date.now();
   const prior = host.savedJourneys.find((j) => j.id === host.activeJourney!.id);
-  const sessionMode =
-    host.viewportMode === "streetview"
-      ? "streetview"
-      : (prior?.sessionMode ?? "map");
   flushPanoStrokes(host);
-  const diary = host.activeJourney.diary.trim();
+  const diary = host.activeJourney.diary.trim() || prior?.diary?.trim() || "";
+  const mapStrokes =
+    host.viewportMode === "streetview"
+      ? prior?.strokes?.length
+        ? cloneStrokes(prior.strokes)
+        : []
+      : cloneStrokes(host.strokes);
+  const panoDrawings =
+    host.viewportMode === "streetview"
+      ? cloneHostPanoDrawings(host)
+      : clonePanoDrawings(prior?.panoDrawings ?? []);
+  const sessionMode = resolveSessionModeForSave(
+    host.viewportMode,
+    mapStrokes,
+    panoDrawings,
+    diary,
+    prior,
+  );
+  const mapProvider =
+    host.viewportMode === "streetview"
+      ? "google"
+      : (host.mapContext?.provider ?? prior?.mapProvider);
+  const anchor = journeyAnchor({
+    strokes: mapStrokes,
+    panoDrawings,
+    anchorLat: prior?.anchorLat,
+    anchorLng: prior?.anchorLng,
+  });
+  const anchorPoint =
+    anchor ??
+    (host.viewportMode === "streetview" && host.streetViewContext
+      ? { lat: host.streetViewContext.lat, lng: host.streetViewContext.lng }
+      : null);
   const journey: SavedJourney = {
     id: host.activeJourney.id,
     name: host.activeJourney.name.trim() || createDefaultSessionName(host.viewportMode),
     diary: diary || undefined,
-    strokes: host.viewportMode === "streetview" ? [] : cloneStrokes(host.strokes),
-    panoDrawings: cloneHostPanoDrawings(host),
+    strokes: mapStrokes,
+    panoDrawings,
     createdAt: host.activeJourney.createdAt,
     updatedAt: now,
     sessionMode,
+    mapProvider,
+    anchorLat: anchorPoint?.lat ?? null,
+    anchorLng: anchorPoint?.lng ?? null,
+    metaUpdatedAt: prior?.metaUpdatedAt,
   };
   host.activeJourney.name = journey.name;
   host.activeJourney.diary = diary;
