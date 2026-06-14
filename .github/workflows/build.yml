@@ -34,8 +34,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           cp -r .output/chrome-mv3 vgraffiti-extension
-          zip -r vgraffiti-extension.zip vgraffiti-extension
-          unzip -l vgraffiti-extension.zip | head -20
+          ls -la vgraffiti-extension | head -20
 
       - name: Upload extension
         if: github.event_name != 'pull_request'
@@ -43,12 +42,4 @@ jobs:
         with:
           name: vgraffiti-extension
           path: vgraffiti-extension/
-          retention-days: 30
-
-      - name: Upload extension zip
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: vgraffiti-extension-zip
-          path: vgraffiti-extension.zip
           retention-days: 30

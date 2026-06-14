@@ -53,16 +53,13 @@ gh workflow run build
 
 Либо в GitHub: **Actions → Build extension → Run workflow**.
 
-В **Artifacts** после успешного run:
+В **Artifacts** скачайте **`vgraffiti-extension`** — GitHub отдаёт один zip-файл. После **одной** распаковки получите папку `vgraffiti-extension/` с `manifest.json` внутри (не в корне `Downloads`).
 
-| Артефакт | Что внутри |
-|----------|------------|
-| `vgraffiti-extension` | папка `vgraffiti-extension/` (GitHub отдаёт как zip) |
-| `vgraffiti-extension-zip` | готовый `vgraffiti-extension.zip` |
+Артефакт `vgraffiti-extension-zip` убран: GitHub всегда оборачивает загруженный `.zip` ещё одним архивом (zip в zip).
 
-После распаковки скачанного архива файлы лежат в **`vgraffiti-extension/`**, а не в корне `Downloads`. Для Chrome: **Загрузить распакованное** → выбрать эту папку.
+Для Chrome: **Загрузить распакованное** → папка `vgraffiti-extension`.
 
-Для раздачи на сайте положите `vgraffiti-extension.zip` в `wp-content/uploads/vgraffiti/` или используйте [релиз на GitHub](https://github.com/svfcode/vgraffiti/releases/latest/download/vgraffiti-extension.zip).
+Файл `vgraffiti-extension.zip` для сайта — локально `npm run zip:dist`, либо [релиз на GitHub](https://github.com/svfcode/vgraffiti/releases/latest/download/vgraffiti-extension.zip) (прямая ссылка без вложенности).
 
 **Важно:** не используйте «Code → Download ZIP» (это исходники без сборки).
 
