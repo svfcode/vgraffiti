@@ -33,13 +33,14 @@ jobs:
       - name: Package extension
         if: github.event_name != 'pull_request'
         run: |
-          cp -r .output/chrome-mv3 vgraffiti-extension
-          ls -la vgraffiti-extension | head -20
+          mkdir -p extension-package/vgraffiti-extension
+          cp -r .output/chrome-mv3/. extension-package/vgraffiti-extension/
+          find extension-package -maxdepth 2 -type f | head -20
 
       - name: Upload extension
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: vgraffiti-extension
-          path: vgraffiti-extension/
+          path: extension-package/
           retention-days: 30

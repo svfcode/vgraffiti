@@ -53,9 +53,9 @@ gh workflow run build
 
 Либо в GitHub: **Actions → Build extension → Run workflow**.
 
-В **Artifacts** скачайте **`vgraffiti-extension`** — GitHub отдаёт один zip-файл. После **одной** распаковки получите папку `vgraffiti-extension/` с `manifest.json` внутри (не в корне `Downloads`).
+В **Artifacts** скачайте **`vgraffiti-extension`**. После одной распаковки — папка **`vgraffiti-extension/`** с `manifest.json` внутри (не в корне `Downloads`).
 
-Артефакт `vgraffiti-extension-zip` убран: GitHub всегда оборачивает загруженный `.zip` ещё одним архивом (zip в zip).
+GitHub Artifacts: если загрузить саму папку `vgraffiti-extension/`, в zip попадут только файлы без имени каталога. Поэтому в CI файлы кладутся в `extension-package/vgraffiti-extension/` и загружается родитель `extension-package/`.
 
 Для Chrome: **Загрузить распакованное** → папка `vgraffiti-extension`.
 

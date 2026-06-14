@@ -2,6 +2,7 @@ node_modules/
 .output/
 .wxt/
 vgraffiti-extension/
+extension-package/
 *.zip
 .DS_Store
 *.log
