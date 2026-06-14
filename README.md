@@ -36,10 +36,12 @@ npm run dev
 
 ```bash
 npm run build
-npm run zip
+npm run zip:dist
 ```
 
-`npm run zip` создаёт **плоский** архив `.output/vgraffiti-*-chrome.zip`: в корне лежит `manifest.json`, без вложенной папки.
+`npm run zip:dist` создаёт `.output/vgraffiti-extension.zip` с папкой `vgraffiti-extension/` внутри (удобно для загрузки на сайт и «Загрузить распакованное» в Chrome).
+
+`npm run zip` (wxt) — плоский архив для Chrome Web Store.
 
 ### CI (GitHub Actions)
 
@@ -51,11 +53,18 @@ gh workflow run build
 
 Либо в GitHub: **Actions → Build extension → Run workflow**.
 
-В **Artifacts** скачайте `vgraffiti-extension` — GitHub отдаёт его как один `.zip`. После распаковки в корне будут `manifest.json`, `background.js` и т.д. (не нужно распаковывать второй архив внутри).
+В **Artifacts** после успешного run:
 
-Для раздачи ученикам можно положить этот распакованный архив (или результат `npm run zip`) в `wp-content/uploads/vgraffiti/vgraffiti-chrome.zip`.
+| Артефакт | Что внутри |
+|----------|------------|
+| `vgraffiti-extension` | папка `vgraffiti-extension/` (GitHub отдаёт как zip) |
+| `vgraffiti-extension-zip` | готовый `vgraffiti-extension.zip` |
 
-**Важно:** после распаковки в папке должен лежать `manifest.json` — не в подпапке. Не используйте «Code → Download ZIP» (это исходники без сборки). Не архивируйте повторно уже готовый `.zip` из Artifacts — внутри снова окажется zip.
+После распаковки скачанного архива файлы лежат в **`vgraffiti-extension/`**, а не в корне `Downloads`. Для Chrome: **Загрузить распакованное** → выбрать эту папку.
+
+Для раздачи на сайте положите `vgraffiti-extension.zip` в `wp-content/uploads/vgraffiti/` или используйте [релиз на GitHub](https://github.com/svfcode/vgraffiti/releases/latest/download/vgraffiti-extension.zip).
+
+**Важно:** не используйте «Code → Download ZIP» (это исходники без сборки).
 
 ## Стек
 
